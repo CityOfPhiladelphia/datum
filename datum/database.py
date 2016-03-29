@@ -36,6 +36,9 @@ class Database(object):
     def _c(self):
         return self._child._c
 
+    def execute(self, stmt):
+        return self._child.execute(stmt)
+
     def save(self):
         self._child.save()
 

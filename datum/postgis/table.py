@@ -209,16 +209,17 @@ class Table(object):
         fields = rows[0].keys()
         geom_field = self.geom_field
         srid = from_srid or self.srid
-        row_geom_type = re.match('[A-Z]+', rows[0][geom_field]).group()
-        table_geom_type = self.geom_type
+        row_geom_type = re.match('[A-Z]+', rows[0][geom_field]).group() \
+            if geom_field else None
+        table_geom_type = self.geom_type if geom_field else None
 
         # Do we need to cast the geometry to a MULTI type? (Assuming all rows 
         # have the same geom type.)
-        if not row_geom_type.startswith('MULTI') and \
+        if geom_field and not row_geom_type.startswith('MULTI') and \
             self.geom_type.startswith('MULTI'):
             multi_geom = True
-        else:
-            multi_geom = False
+        # else:
+        #     multi_geom = False
 
         # Make a map of non geom field name => type
         type_map = OrderedDict()
@@ -270,32 +271,29 @@ class Table(object):
 
     """INDEXES"""
 
-    def _name_for_index(self, field):
-        return '{}_{}_idx'.format(self.name, field)
+    def _name_for_index(self, fields):
+        """This is approximately what Postgres will suggest for index names."""
+        comps = [self.name] + list(fields) + ['idx']
+        return '_'.join(comps)
 
-    def create_index(self, field):
-        index_name = self._name_for_index(field)
-        stmt = '''
-            DO $$
-            BEGIN
-
-            IF (
-                SELECT to_regclass('{}') IS NULL
-            )
-            THEN
-                CREATE INDEX ON {} ({});
-            END IF;
-
-            END$$;
-        '''.format(index_name, self.name, field)
+    def create_index(self, *fields, name=None):
+        name = name or self._name_for_index(fields)
+        comps = [
+            'CREATE INDEX IF NOT EXISTS',
+            name,
+            'ON',
+            self.name,
+            '({})'.format(', '.join(fields))
+        ]
+        stmt = ' '.join(comps)
         self._exec(stmt)
         self.db.save()
 
-    def drop_index(self, field):
+    def drop_index(self, *fields, name=None):
         '''
         Drops an index by name, if it exists
         '''
-        index_name = self._name_for_index(field)
-        stmt = "DROP INDEX IF EXISTS {}".format(index_name)
+        name = name or self._name_for_index(fields)
+        stmt = "DROP INDEX IF EXISTS {}".format(name)
         self._exec(stmt)
         self.db.save()

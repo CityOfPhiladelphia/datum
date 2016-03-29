@@ -21,7 +21,7 @@ class Database(object):
         self.cxn = cx_Oracle.connect(dsn)
         self._c = self.cxn.cursor()
 
-    def _exec(self, stmt):
+    def execute(self, stmt):
         self._c.execute(stmt)
         rows = self._c.fetchall()
         # Unpack single values
@@ -45,7 +45,7 @@ class Database(object):
                 FROM ALL_VIEWS
                 WHERE OWNER = '{}')
         """.format(self.user)
-        return sorted(self._exec(stmt))
+        return sorted(self.execute(stmt))
 
     ############################################################################
     # READ

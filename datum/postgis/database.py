@@ -40,6 +40,20 @@ class Database(object):
         """Commit database changes."""
         self._cxn.commit()
 
+    def execute(self, stmt):
+        """Execute a SQL statement and return all rows."""
+        self._c.execute(stmt)
+        try:
+            rows = self._c.fetchall()
+        # We already executed the statement, so if there's a ProgrammingError
+        # here it's probably just that no rows were returned.
+        except psycopg2.ProgrammingError:
+            return None
+        # Unpack single values
+        if len(rows) > 0 and len(rows[0]) == 1:
+            rows = [x[0] for x in rows]
+        return rows
+
 
     """TABLES"""
 
