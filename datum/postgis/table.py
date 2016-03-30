@@ -224,7 +224,11 @@ class Table(object):
         # Make a map of non geom field name => type
         type_map = OrderedDict()
         for field in fields:
-            type_map[field] = [x['type'] for x in self.metadata if x['name'] == field][0]
+            try:
+                type_map[field] = [x['type'] for x in self.metadata if x['name'] == field][0]
+            except IndexError:
+                raise ValueError('Field `{}` does not exist'.format(field))
+                sys.exit()
         type_map_items = type_map.items()
 
         fields_joined = ', '.join(fields)
