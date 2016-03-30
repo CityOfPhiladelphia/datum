@@ -119,7 +119,7 @@ class Table(object):
 
         # Form SQL statement
         if fields:
-            fields = [double_quote(x) for x in fields]
+            fields = [dbl_quote(x) for x in fields]
             if geom_field:
                 fields.append(self._wkt_getter(geom_field, to_srid=to_srid))    
             fields_joined = ', '.join(fields)
