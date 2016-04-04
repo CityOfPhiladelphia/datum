@@ -13,7 +13,8 @@ FIELD_TYPE_MAP = {
     'FIXED_CHAR':   'text',
     # HACK: Nothing else in an SDE database should be using OBJECTVAR.
     'OBJECTVAR':    'geom',
-    'LONG_STRING':  'text',
+    # Not sure why cx_Oracle returns this for a NUMBER field.
+    'LONG_STRING':  'num',
 }
 
 class Table(object):

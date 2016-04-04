@@ -178,6 +178,9 @@ class Table(object):
         if val is None:
             return 'NULL'
 
+        # Make all vals strings for inserting into SQL statement.
+        val = str(val)
+
         if type_ == 'text':
             if len(val) > 0:
                 val = val.replace("'", "''")    # Escape quotes
@@ -185,7 +188,7 @@ class Table(object):
             else:
                 val = "''"
         elif type_ == 'num':
-            val = str(val)
+            pass
         elif type_ == 'geom':
             pass
         else:
