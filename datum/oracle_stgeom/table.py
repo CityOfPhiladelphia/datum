@@ -1,3 +1,4 @@
+import re
 from datum.util import dbl_quote, WktTransformer
 from cx_Oracle import OBJECT as CxOracleObject
 import cx_Oracle
@@ -114,8 +115,8 @@ class Table(object):
         return "SDE.ST_AsText({}) AS {}"\
             .format(geom_field_t, geom_field)
 
-    def read(self, fields=None, geom_field=None, to_srid=None, return_geom=True,
-        limit=None, where=None, sort=None):
+    def read(self, fields=None, aliases=None, geom_field=None, to_srid=None,
+        return_geom=True, limit=None, where=None, sort=None):
         # If no geom_field was specified and we're supposed to return geom, 
         # get it from the object.
         geom_field = geom_field or (self.geom_field if return_geom else None)
@@ -141,7 +142,12 @@ class Table(object):
             stmt += " WHERE ROWNUM <= {}".format(limit)
 
         self._c.execute(stmt)
-        fields_lower = [x.lower() for x in fields]
+        
+        # Handle aliases, even if they're just (hackily) part of the field names
+        fields = [aliases[x] if x in aliases else x for x in fields]
+        fields = [re.sub('.+ AS ', '', x, flags=re.IGNORECASE) for x in fields]
+        
+        fields_lower = [x.lower() for x in fields] 
         if geom_field:
             geom_field_i = fields.index(geom_field)
         rows = []
@@ -154,6 +160,8 @@ class Table(object):
                 row[geom_field_i] = geom
             rows.append(row)
 
+
+        # Dictify.
         rows = [dict(zip(fields_lower, row)) for row in rows]
 
         # Transform if we need to

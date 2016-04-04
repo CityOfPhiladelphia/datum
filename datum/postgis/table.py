@@ -112,12 +112,14 @@ class Table(object):
             self._pk_field = self._exec(stmt)[0]['name']
         return self._pk_field
 
-    def read(self, fields=None, geom_field=None, to_srid=None, limit=None, where=None, sort=None):
+    def read(self, fields=None, aliases=None, geom_field=None, to_srid=None, \
+        limit=None, where=None, sort=None):
         """Read a DB table."""
         # Enclose table name in quotes in case there are casing issues
         table_name = self._name_p
 
         # Form SQL statement
+        # TODO: handle aliases
         if fields:
             fields = [dbl_quote(x) for x in fields]
             if geom_field:

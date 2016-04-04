@@ -47,8 +47,8 @@ class Table(object):
         """Returns a list of field names."""
         return self._child.fields
 
-    def read(self, fields=None, geom_field=None, to_srid=None, limit=None, \
-        where=None, sort=None):
+    def read(self, fields=None, aliases=None, geom_field=None, to_srid=None, \
+        limit=None, where=None, sort=None):
         """
         Read rows from the database.
         
@@ -56,14 +56,16 @@ class Table(object):
         Parameters
         ----------
         fields : list, optional
+        aliases: dict, optional
         geom_field : str, optional
         to_srid : int, optional
         limit : int, optional
         where : str, optional
         sort : str, optional
         """
-        return self._child.read(fields=fields, geom_field=geom_field, \
-            to_srid=to_srid, limit=limit, where=where, sort=sort)
+        return self._child.read(fields=fields, aliases=aliases, \
+            geom_field=geom_field, to_srid=to_srid, limit=limit, where=where, \
+            sort=sort)
 
     def write(self, rows, from_srid=None, chunk_size=None):
         self._child.write(rows, from_srid=from_srid, chunk_size=chunk_size)
