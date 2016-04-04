@@ -13,6 +13,7 @@ FIELD_TYPE_MAP = {
     'FIXED_CHAR':   'text',
     # HACK: Nothing else in an SDE database should be using OBJECTVAR.
     'OBJECTVAR':    'geom',
+    'LONG_STRING':  'text',
 }
 
 class Table(object):
