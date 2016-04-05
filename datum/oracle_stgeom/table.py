@@ -145,7 +145,8 @@ class Table(object):
         
         # Handle aliases
         # fields = [re.sub('.+ AS ', '', x, flags=re.IGNORECASE) for x in fields]
-        fields = [aliases[x] if x in aliases else x for x in fields]
+        if aliases:
+          fields = [aliases[x] if x in aliases else x for x in fields]
 
         fields_lower = [x.lower() for x in fields] 
         if geom_field:
