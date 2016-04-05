@@ -143,10 +143,10 @@ class Table(object):
 
         self._c.execute(stmt)
         
-        # Handle aliases, even if they're just (hackily) part of the field names
+        # Handle aliases
+        # fields = [re.sub('.+ AS ', '', x, flags=re.IGNORECASE) for x in fields]
         fields = [aliases[x] if x in aliases else x for x in fields]
-        fields = [re.sub('.+ AS ', '', x, flags=re.IGNORECASE) for x in fields]
-        
+
         fields_lower = [x.lower() for x in fields] 
         if geom_field:
             geom_field_i = fields.index(geom_field)

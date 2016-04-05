@@ -119,9 +119,12 @@ class Table(object):
         table_name = self._name_p
 
         # Form SQL statement
-        # TODO: handle aliases
         if fields:
-            fields = [dbl_quote(x) for x in fields]
+            if aliases:
+                fields = [dbl_quote(x) + (' AS {}'.format(aliases[x]) \
+                    if x in aliases else '') for x in fields]
+            else:
+                fields = [dbl_quote(x) for x in fields]
             if geom_field:
                 fields.append(self._wkt_getter(geom_field, to_srid=to_srid))    
             fields_joined = ', '.join(fields)
