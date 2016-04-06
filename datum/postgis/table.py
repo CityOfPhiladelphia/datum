@@ -289,7 +289,7 @@ class Table(object):
         return '_'.join(comps)
 
     def create_index(self, *fields, **kwargs):
-        name = kwargs.get(name) or self._name_for_index(fields)
+        name = kwargs.get('name') or self._name_for_index(fields)
         comps = [
             'CREATE INDEX IF NOT EXISTS',
             name,
@@ -305,7 +305,7 @@ class Table(object):
         '''
         Drops an index by name, if it exists
         '''
-        name = kwargs.get(name) or self._name_for_index(fields)
+        name = kwargs.get('name') or self._name_for_index(fields)
         stmt = "DROP INDEX IF EXISTS {}".format(name)
         self._exec(stmt)
         self.db.save()
