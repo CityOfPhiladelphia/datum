@@ -77,8 +77,8 @@ class Table(object):
 
     """INDEXES"""
 
-    def create_index(self, name=None, *fields):
+    def create_index(self, *fields, name=None):
         self._child.create_index(*fields, name=name)
 
-    def drop_index(self, name=None, *fields):
+    def drop_index(self, *fields, name=None):
         self._child.drop_index(*fields, name=name)

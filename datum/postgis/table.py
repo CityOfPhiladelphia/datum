@@ -288,7 +288,7 @@ class Table(object):
         comps = [self.name] + list(fields) + ['idx']
         return '_'.join(comps)
 
-    def create_index(self, name=None, *fields):
+    def create_index(self, *fields, name=None):
         name = name or self._name_for_index(fields)
         comps = [
             'CREATE INDEX IF NOT EXISTS',
@@ -301,7 +301,7 @@ class Table(object):
         self._exec(stmt)
         self.db.save()
 
-    def drop_index(self, name=None, *fields):
+    def drop_index(self, *fields, name=None):
         '''
         Drops an index by name, if it exists
         '''
