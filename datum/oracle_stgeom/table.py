@@ -158,6 +158,7 @@ class Table(object):
             row = list(source_row)
             if geom_field:
                 # geom = row[geom_field_i].read()
+                geom = row[geom_field_i]
                 row[geom_field_i] = geom
             rows.append(row)
 
