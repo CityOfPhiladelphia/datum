@@ -112,7 +112,7 @@ class Table(object):
         # if to_srid and to_srid != self.srid:
         #     geom_field_t = "SDE.ST_Transform({}, {})"\
         #         .format(geom_field, to_srid)
-        return "SDE.ST_AsText({}) AS {}"\
+        return "DBMS_LOB.SUBSTR(SDE.ST_AsText({})) AS {}"\
             .format(geom_field_t, geom_field)
 
     def read(self, fields=None, aliases=None, geom_field=None, to_srid=None,
@@ -157,7 +157,7 @@ class Table(object):
         for source_row in self._c:
             row = list(source_row)
             if geom_field:
-                geom = row[geom_field_i].read()
+                # geom = row[geom_field_i].read()
                 row[geom_field_i] = geom
             rows.append(row)
 
