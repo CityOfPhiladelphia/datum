@@ -224,8 +224,8 @@ class Table(object):
         # Do we need to cast the geometry to a MULTI type? (Assuming all rows 
         # have the same geom type.)
         if geom_field:
-            if row_geom_type.startswith('MULTI') and \
-                self.geom_type.startswith('MULTI'):
+            if self.geom_type.startswith('MULTI') and \
+                not row_geom_type.startswith('MULTI'):
                 multi_geom = True
             else:
                 multi_geom = False
