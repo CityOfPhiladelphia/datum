@@ -75,6 +75,10 @@ class Table(object):
         return [x['name'] for x in self.metadata]
 
     @property
+    def non_geom_fields(self):
+        return [x for x in self.fields if x != self.geom_field]
+
+    @property
     def geom_field(self):
         f = [x for x in self.metadata if x['type'] == 'geom']
         if len(f) == 0:

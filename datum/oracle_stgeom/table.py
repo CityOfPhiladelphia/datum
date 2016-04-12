@@ -58,6 +58,10 @@ class Table(object):
     def fields(self):
         return [x['name'].lower() for x in self.metadata]
 
+    @property
+    def non_geom_fields(self):
+        return [x for x in self.fields if x != self.geom_field]
+
     def _get_srid(self):
         stmt = "SELECT SDE.ST_SRID({0.geom_field}) FROM {0._name_p} WHERE \
             ROWNUM = 1".format(self)

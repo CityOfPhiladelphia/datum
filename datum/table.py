@@ -34,6 +34,11 @@ class Table(object):
         return self._child.geom_type
 
     @property
+    def non_geom_fields(self):
+        """Returns all non-geometry fields."""
+        return self._child.non_geom_fields
+
+    @property
     def metadata(self):
         """Returns a list of field attribute dictionaries."""
         return self._child.metadata
