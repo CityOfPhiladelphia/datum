@@ -46,7 +46,7 @@ class Table(object):
         geom_getter = geom_field
         if to_srid:
             geom_getter = 'ST_Transform({}, {})'.format(geom_getter, to_srid)
-        return 'ST_AsText({}) AS {}_WKT'.format(geom_getter, geom_field)
+        return 'ST_AsText({}) AS {}'.format(geom_getter, geom_field)
 
     @property
     def count(self):
