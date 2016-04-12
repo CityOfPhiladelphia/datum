@@ -241,7 +241,6 @@ class Table(object):
                 type_map[field] = [x['type'] for x in self.metadata if x['name'] == field][0]
             except IndexError:
                 raise ValueError('Field `{}` does not exist'.format(field))
-                sys.exit()
         type_map_items = type_map.items()
 
         fields_joined = ', '.join(fields)
