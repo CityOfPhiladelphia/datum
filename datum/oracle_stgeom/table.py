@@ -170,6 +170,7 @@ class Table(object):
                 geom = row[geom_field_i]
                 geom = scrub_m_geom_type_re.sub(self.geom_type, geom)
                 geom = scrub_m_value_re.sub('', geom)
+                row[geom_field_i] = geom
         
         # Dictify.
         rows = [dict(zip(fields_lower, row)) for row in rows]
