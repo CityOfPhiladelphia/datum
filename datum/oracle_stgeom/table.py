@@ -158,11 +158,19 @@ class Table(object):
         for source_row in self._c:
             row = list(source_row)
             if geom_field:
-                geom = row[geom_field_i].read()
-                row[geom_field_i] = geom
+                row[geom_field_i] = row[geom_field_i].read()
             rows.append(row)
 
-
+        # Check if we need to scrub m-values.
+        # WKT will look like `POLYGON M (...)`
+        if ' M ' in rows[0][geom_field_i]:
+            scrub_m_geom_type_re = re.compile(self.geom_type + ' M')
+            scrub_m_value_re = re.compile(' 1.#QNAN000')
+            for row in rows:
+                geom = row[geom_field_i]
+                geom = scrub_m_geom_type_re.sub(self.geom_type, geom)
+                geom = scrub_m_value_re.sub('', geom)
+        
         # Dictify.
         rows = [dict(zip(fields_lower, row)) for row in rows]
 
