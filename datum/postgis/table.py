@@ -143,7 +143,11 @@ class Table(object):
         if where:
             stmt += " WHERE {}".format(where)
         if sort:
-            stmt += " ORDER BY {}".format(sort)
+            if isinstance(sort, list):
+                stmt += " ORDER BY {}".format(', '.join(sort))
+            else:
+                stmt += " ORDER BY {}".format(sort)
+
         if limit:
             stmt += " LIMIT {}".format(limit)
         # print(stmt)
