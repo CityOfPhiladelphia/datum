@@ -49,9 +49,9 @@ class Database(object):
         # here it's probably just that no rows were returned.
         except psycopg2.ProgrammingError:
             return None
-        # Unpack single values
-        if len(rows) > 0 and len(rows[0]) == 1:
-            rows = [x[0] for x in rows]
+        # Unpack single value rows
+        # if len(rows) > 0 and len(rows[0]) == 1 and isinstance(rows[0], list):
+        #     rows = [x[0] for x in rows]
         return rows
 
 
