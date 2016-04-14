@@ -59,6 +59,12 @@ class Database(object):
         """Count rows."""
         return self._child.count
 
+    def create_table(self, table, fields):
+        self._child.create_table(table, fields)
+
+    def drop_table(self, table):
+        self._child.drop_table(table)
+
     def create_view(self, view, select_stmt):
         self._child.create_view(view, select_stmt)
 
