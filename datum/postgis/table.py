@@ -6,6 +6,7 @@ from psycopg2 import ProgrammingError
 
 FIELD_TYPE_MAP = {
     'integer':              'num',
+    'double precision':     'num',
     'text':                 'text',
     'character varying':    'text',
     'USER-DEFINED':         'geom',
