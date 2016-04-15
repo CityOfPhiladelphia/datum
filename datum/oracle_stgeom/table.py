@@ -163,7 +163,7 @@ class Table(object):
 
         # Check if we need to scrub m-values.
         # WKT will look like `POLYGON M (...)`
-        if ' M ' in rows[0][geom_field_i]:
+        if geom_field and ' M ' in rows[0][geom_field_i]:
             scrub_m_geom_type_re = re.compile(self.geom_type + ' M')
             scrub_m_value_re = re.compile(' 1.#QNAN000')
             for row in rows:
