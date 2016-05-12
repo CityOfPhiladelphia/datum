@@ -162,6 +162,11 @@ class Table(object):
                 row[geom_field_i] = row[geom_field_i].read()
             rows.append(row)
 
+        # If there were no rows returned, don't move on to next step where
+        # we try to get a row.
+        if len(rows) == 0:
+            return rows
+
         # Check if we need to scrub m-values.
         # WKT will look like `POLYGON M (...)`
         if geom_field and ' M ' in rows[0][geom_field_i]:
