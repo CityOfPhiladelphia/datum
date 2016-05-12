@@ -117,8 +117,8 @@ class Table(object):
             self._pk_field = self._exec(stmt)[0]['name']
         return self._pk_field
 
-    def read(self, fields=None, aliases=None, geom_field=None, to_srid=None, \
-        limit=None, where=None, sort=None):
+    def read(self, fields=None, aliases=None, geom_field=None, \
+        return_geom=True, to_srid=None, limit=None, where=None, sort=None):
         """Read a DB table."""
         # Enclose table name in quotes in case there are casing issues
         table_name = self._name_p
@@ -130,7 +130,7 @@ class Table(object):
                     if x in aliases else '') for x in fields]
             else:
                 fields = [dbl_quote(x) for x in fields]
-            if geom_field:
+            if geom_field and return_geom:
                 fields.append(self._wkt_getter(geom_field, to_srid=to_srid))    
             fields_joined = ', '.join(fields)
             stmt = "SELECT {} FROM {}".format(fields_joined, table_name)
