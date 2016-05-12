@@ -22,6 +22,9 @@ def parse_url(url):
 
 class WktTransformer(object):
     def __init__(self, from_srid, to_srid):
+        # TODO if a projected coordinate system is involved that does not use
+        # feet, you need to pass in `preserve_units=True` into pyproj.Proj
+        # so that it doesn't assume we're working with meters.
         self.project = partial(
             pyproj.transform,
             pyproj.Proj('+init=EPSG:{}'.format(from_srid)),
@@ -32,5 +35,3 @@ class WktTransformer(object):
         from_shp = shp_loads(from_wkt)
         shp_t = shp_transform(self.project, from_shp)
         return shp_dumps(shp_t)
-
-
