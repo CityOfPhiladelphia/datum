@@ -177,7 +177,7 @@ class Table(object):
         if 'CURVE' in geom or geom.startswith('CIRC'):
             geom = "ST_CurveToLine({})".format(geom)
         # Reproject if necessary
-        if transform_srid and from_srid != transform_srid:
+        if transform_srid and srid != transform_srid:
              geom = "ST_Transform({}, {})".format(geom, transform_srid)
         # else:
         #   geom = "ST_GeomFromText('{}', {})".format(geom, from_srid)

@@ -1,4 +1,5 @@
 import re
+from collections import OrderedDict
 from datum.util import dbl_quote, WktTransformer
 from cx_Oracle import OBJECT as CxOracleObject
 import cx_Oracle
@@ -75,7 +76,7 @@ class Table(object):
         desc = self._c.description
         fields = []
         for field in desc:
-            name = field[0]
+            name = field[0].lower()
             type_ = field[1].__name__
             assert type_ in FIELD_TYPE_MAP, '{} not a known field type'\
                 .format(type_)
@@ -190,3 +191,135 @@ class Table(object):
                 row[geom_field_l] = geom_t        
 
         return rows
+
+    def _prepare_geom(self, geom, srid, transform_srid=None, multi_geom=True):
+        """Prepares WKT geometry by projecting and casting as necessary."""
+        geom = "ST_GeomFromText('{}', {})".format(geom, srid)
+
+        # Handle 3D geometries
+        # TODO: screen these with regex
+        if 'NaN' in geom:
+            geom = geom.replace('NaN', '0')
+            geom = "ST_Force_2D({})".format(geom)
+
+        # Convert curve geometries (these aren't supported by PostGIS)
+        if 'CURVE' in geom or geom.startswith('CIRC'):
+            geom = "ST_CurveToLine({})".format(geom)
+        # Reproject if necessary
+        if transform_srid and srid != transform_srid:
+             geom = "ST_Transform({}, {})".format(geom, transform_srid)
+        # else:
+        #   geom = "ST_GeomFromText('{}', {})".format(geom, from_srid)
+
+        if multi_geom:
+            geom = 'ST_Multi({})'.format(geom)
+
+        return geom
+
+    def _prepare_val(self, val, type_):
+        """Prepare a value for entry into the DB."""
+        if val is None:
+            return 'NULL'
+
+        # Make all vals strings for inserting into SQL statement.
+        val = str(val)
+
+        if type_ == 'text':
+            if len(val) > 0:
+                val = val.replace("'", "''")    # Escape quotes
+                val = "'{}'".format(val)
+            else:
+                val = "''"
+        elif type_ == 'num':
+            pass
+        elif type_ == 'geom':
+            pass
+        else:
+            raise TypeError("Unhandled type: '{}'".format(type_))
+        return val
+
+    def write(self, rows, from_srid=None, chunk_size=None):
+        """
+        Inserts dictionary row objects in the the database 
+        Args: list of row dicts, table name, ordered field names
+        """
+        if len(rows) == 0:
+            return
+
+        # Get fields from the row because some fields from self.fields may be
+        # optional, such as autoincrementing integers.
+        fields = rows[0].keys()
+        geom_field = self.geom_field
+        srid = from_srid or self.srid
+        row_geom_type = re.match('[A-Z]+', rows[0][geom_field]).group() \
+            if geom_field else None
+        table_geom_type = self.geom_type if geom_field else None
+
+        # Do we need to cast the geometry to a MULTI type? (Assuming all rows 
+        # have the same geom type.)
+        if geom_field:
+            if self.geom_type.startswith('MULTI') and \
+                not row_geom_type.startswith('MULTI'):
+                multi_geom = True
+            else:
+                multi_geom = False
+
+        # Make a map of non geom field name => type
+        type_map = OrderedDict()
+        for field in fields:
+            try:
+                type_map[field] = [x['type'] for x in self.metadata if x['name'] == field][0]
+            except IndexError:
+                print(self.metadata)
+                raise ValueError('Field `{}` does not exist'.format(field))
+        type_map_items = type_map.items()
+
+        # Prepare cursor for many inserts
+        fields_joined = ', '.join(fields)
+        placeholders = ', '.join(':' + x for x in fields)
+        stmt = "INSERT INTO {} ({}) VALUES ({})".format(self.name, \
+            fields_joined, placeholders)
+        self._c.prepare(stmt)
+
+        len_rows = len(rows)
+        if chunk_size is None or len_rows < chunk_size:
+            iterations = 1
+        else:
+            iterations = int(len_rows / chunk_size)
+            iterations += (len_rows % chunk_size > 0)  # round up
+
+        # Make list of value lists
+        for i in range(0, iterations):
+            val_rows = []
+            # cur_stmt = stmt
+            if chunk_size:
+                start = i * chunk_size
+                end = min(len_rows, start + chunk_size)
+            else:
+                start = i
+                end = len_rows
+
+            for row in rows[start:end]:
+                val_row = []
+                for field, type_ in type_map_items:
+                    if type_ == 'geom':
+                        geom = row[geom_field]
+                        val = self._prepare_geom(geom, srid, multi_geom=multi_geom)
+                        val_row.append(val)
+
+                    else:
+                        val = self._prepare_val(row[field], type_)
+                        val_row.append(val)                        
+                val_rows.append(val_row)
+
+            # Execute
+            # vals_joined = ['({})'.format(', '.join(vals)) for vals in val_rows]
+            # rows_joined = ', '.join(vals_joined)
+            # cur_stmt += rows_joined
+            print(val_rows)
+            self._c.executemany(None, val_rows)
+            self._save()
+            
+    def _save(self):
+        """Convenience method for committing changes."""
+        self.db.save()
