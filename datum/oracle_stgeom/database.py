@@ -17,6 +17,7 @@ class Database(object):
         self.name = p['db_name']
         
         dsn = '{user}/{password}@{host}'.format(**self.__dict__)
+        if self.name: dsn += '/' + self.name
 
         self.cxn = cx_Oracle.connect(dsn)
         self._c = self.cxn.cursor()
