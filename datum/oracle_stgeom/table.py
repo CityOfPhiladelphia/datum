@@ -203,7 +203,7 @@ class Table(object):
 
     def _prepare_geom(self, geom, srid, transform_srid=None, multi_geom=True):
         """Prepares WKT geometry by projecting and casting as necessary."""
-        geom = "ST_GeomFromText('{}', {})".format(geom, srid)
+        geom = "SDE.ST_Geometry('{}', {})".format(geom, srid)
 
         # Handle 3D geometries
         # TODO: screen these with regex
@@ -215,10 +215,9 @@ class Table(object):
         if 'CURVE' in geom or geom.startswith('CIRC'):
             geom = "ST_CurveToLine({})".format(geom)
         # Reproject if necessary
-        if transform_srid and srid != transform_srid:
-             geom = "ST_Transform({}, {})".format(geom, transform_srid)
-        # else:
-        #   geom = "ST_GeomFromText('{}', {})".format(geom, from_srid)
+        # TODO: do this with pyproj since ST_Geometry can't
+        # if transform_srid and srid != transform_srid:
+        #      geom = "ST_Transform({}, {})".format(geom, transform_srid)
 
         if multi_geom:
             geom = 'ST_Multi({})'.format(geom)
@@ -267,7 +266,8 @@ class Table(object):
         # Do we need to cast the geometry to a MULTI type? (Assuming all rows 
         # have the same geom type.)
         if geom_field:
-            if self.geom_type.startswith('MULTI') and \
+            # Check for a geom_type first, in case the table is empty.
+            if self.geom_type and geom_type.startswith('MULTI') and \
                 not row_geom_type.startswith('MULTI'):
                 multi_geom = True
             else:
@@ -313,7 +313,8 @@ class Table(object):
                 for field, type_ in type_map_items:
                     if type_ == 'geom':
                         geom = row[geom_field]
-                        val = self._prepare_geom(geom, srid, multi_geom=multi_geom)
+                        val = self._prepare_geom(geom, srid, \
+                            multi_geom=multi_geom)
                         val_row.append(val)
 
                     else:
