@@ -63,11 +63,20 @@ class Table(object):
         stmt = "SELECT SDE.ST_SRID({0.geom_field}) FROM {0._name_p} WHERE \
             ROWNUM = 1".format(self)
         self._c.execute(stmt)
-        return self._c.fetchone()[0]
+        row = self._c.fetchone()
+        # An empty table won't return anything
+        if row is None:
+            return row
+        return row[0]
 
     def _get_geom_type(self):
         stmt = "SELECT SDE.ST_GeometryType({}) FROM {} WHERE ROWNUM = 1"\
             .format(self.geom_field, self._name_p)
+        row = self._exec(stmt)
+        # ST_GeometryType returns nothing if the table is empty, so don't try
+        # to unpack the value.
+        if len(row) < 1:
+            return None
         return self._exec(stmt)[0][0].replace('ST_', '')
 
     def _get_metadata(self):
