@@ -51,6 +51,10 @@ class Table(object):
         else:
             return dbl_quote(name)
 
+    @property
+    def _owner(self):
+        return self.parent.db.user
+
     def _exec(self, stmt):
         self._c.execute(stmt)
         return self._c.fetchall()
@@ -60,13 +64,15 @@ class Table(object):
         return [x['name'].lower() for x in self.metadata]
 
     def _get_srid(self):
-        stmt = "SELECT SDE.ST_SRID({0.geom_field}) FROM {0._name_p} WHERE \
-            ROWNUM = 1".format(self)
+        stmt = '''
+            select s.auth_srid
+            from sde.layers l
+            join sde.spatial_references s
+            on l.srid = s.srid
+            where l.owner = '{}' and l.table_name = '{}'
+        '''.format(self._owner.upper(), self.name.upper())
         self._c.execute(stmt)
         row = self._c.fetchone()
-        # An empty table won't return anything
-        if row is None:
-            return row
         return row[0]
 
     def _get_geom_type(self):

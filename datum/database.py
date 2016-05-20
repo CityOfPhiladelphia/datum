@@ -33,6 +33,10 @@ class Database(object):
         return self._child.name
 
     @property
+    def user(self):
+        return self._child.user
+
+    @property
     def _c(self):
         return self._child._c
 
