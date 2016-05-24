@@ -10,11 +10,11 @@ class Database(object):
         self.parent = parent
         url = parent.url
         p = parse_url(url)
-        self.scheme = p['scheme']
         self.host = p['host']
-        self.user = p['user']
+        self.user = p['user'].lower()
         self.password = p['password']
         self.name = p['db_name']
+        if self.name: self.name = self.name.lower()
         
         dsn = '{user}/{password}@{host}'.format(**self.__dict__)
         if self.name: dsn += '/' + self.name
@@ -33,9 +33,14 @@ class Database(object):
     def close(self):
         self.cxn.close()
 
-    def table(self, name):
-        # return Table(self, name)
-        return self.parent.table(name)
+    # def table(self, name):
+    #     # Check for a schema
+    #     if '.' in 
+    #     return self.parent.table(name)
+
+    @property
+    def _user_p(self):
+        return self.user.upper()
 
     @property
     def tables(self):
@@ -45,7 +50,7 @@ class Database(object):
                 SELECT VIEW_NAME
                 FROM ALL_VIEWS
                 WHERE OWNER = '{}')
-        """.format(self.user)
+        """.format(self._user_p)
         return sorted(self.execute(stmt))
 
     ############################################################################

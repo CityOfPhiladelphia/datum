@@ -3,8 +3,8 @@ from .table import Table
 from .postgis import Database as PostgisDatabase
 from .oracle_stgeom import Database as OracleStgeomDatabase
 
-# This translates DB schemes to adapter-specific classes.
-CLASS_MAP = {
+
+ADAPTER_CLASS_MAP = {
     'postgis':          PostgisDatabase,
     'oracle-stgeom':    OracleStgeomDatabase,
 }
@@ -13,14 +13,14 @@ class Database(object):
     """Proxy class for database adapters."""
     def __init__(self, url):
         self.url = url
-        scheme = self.scheme = parse_url(url)['scheme']
-        if scheme not in CLASS_MAP:
-            raise ValueError('Unknown database type: {}'.format(scheme))
-        _ChildDatabase = CLASS_MAP[scheme]
+        adapter = self.adapter = parse_url(url)['scheme']
+        if adapter not in ADAPTER_CLASS_MAP:
+            raise ValueError('Unknown database type: {}'.format(adapter))
+        _ChildDatabase = ADAPTER_CLASS_MAP[adapter]
         self._child = _ChildDatabase(self)
 
     def __str__(self):
-        fmt = 'Database: {scheme}://{user}:***@{host}'
+        fmt = 'Database: {adapter}://{user}:***@{host}'
         fmt += '/' + self.name if self.name else ''
         return fmt.format(**self._child.__dict__)
 

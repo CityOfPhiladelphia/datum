@@ -24,36 +24,32 @@ class Table(object):
     def __init__(self, parent):
         self.parent = parent
         self.db = parent.db
+        self.name = parent.name
+        self.schema = parent.schema
         self._c = self.db._c
         self.metadata = self._get_metadata()
         self.geom_field = self._get_geom_field()
         self.geom_type = self._get_geom_type() if self.geom_field else None
         self.srid = self._get_srid() if self.geom_field else None
-
-    # def _prepare_table_name(self, name):
-    #     name = name.upper()
-    #     # Handle schema prefixes
-    #     if '.' in name:
-    #         return '.'.join([dbl_quote(x) for x in name.split('.')])
-    #     else:
-    #         return dbl_quote(self.name)
-
-    @property
-    def name(self):
-        return self.parent.name
+        self.objectid_field = self._get_objectid_field()
 
     @property
     def _name_p(self):
-        name = self.name.upper()
-        # Handle schema prefixes
-        if '.' in name:
-            return '.'.join([dbl_quote(x) for x in name.split('.')])
-        else:
-            return dbl_quote(name)
+        """Returns the table name prepended with the schema name, prepared for
+        a query."""
+
+        # If there's a schema we have to double quote the owner and the table
+        # name, but also make them uppercase.
+        if self.schema:
+            comps = [self.schema.upper(), self.name.upper()]
+            return '.'.join([dbl_quote(x) for x in comps])
+        return self.name
 
     @property
     def _owner(self):
-        return self.parent.db.user
+        """Return the owner name for querying system tables. This is either
+        the schema or the DB user."""
+        return self.schema or self.db.user
 
     def _exec(self, stmt):
         self._c.execute(stmt)
@@ -61,7 +57,7 @@ class Table(object):
 
     @property
     def fields(self):
-        return [x['name'].lower() for x in self.metadata]
+        return [x['name'] for x in self.metadata]
 
     def _get_srid(self):
         stmt = '''
@@ -76,14 +72,35 @@ class Table(object):
         return row[0]
 
     def _get_geom_type(self):
-        stmt = "SELECT SDE.ST_GeometryType({}) FROM {} WHERE ROWNUM = 1"\
-            .format(self.geom_field, self._name_p)
-        row = self._exec(stmt)
-        # ST_GeometryType returns nothing if the table is empty, so don't try
-        # to unpack the value.
-        if len(row) < 1:
-            return None
-        return self._exec(stmt)[0][0].replace('ST_', '')
+        """
+        This is complicated with SDE and may change from release to release.
+        Basically allowable types are stored in a bit mask in sde.layers.
+        Use Oracle `bitwise and` to unpack.
+        http://gis.stackexchange.com/questions/193424/get-the-geometry-type-of-an-empty-arcsde-feature-class
+        """
+        stmt = '''
+            select
+                bitand(eflags, 2),
+                bitand(eflags, 4) + bitand(eflags, 8),
+                bitand(eflags, 16),
+                bitand(eflags, 262144) 
+            from sde.layers
+            where
+                owner = '{}' and
+                table_name = '{}'
+        '''.format(self._owner.upper(), self.name.upper())
+        point, line, polygon, multipart = self._exec(stmt)[0]
+        if point > 0:
+            geom_type = 'POINT'
+        elif line > 0:
+            geom_type = 'LINESTRING'
+        elif polygon > 0:
+            geom_type = 'POLYGON'
+        else:
+            raise ValueError('Unknown geometry type')
+        if multipart > 0:
+            geom_type = 'MULTI' + geom_type
+        return geom_type
 
     def _get_metadata(self):
         stmt = "SELECT * FROM {} WHERE 1 = 0".format(self._name_p)
@@ -101,6 +118,25 @@ class Table(object):
                 'type':     FIELD_TYPE_MAP[type_],
             })
         return fields
+
+    def _get_objectid_field(self):
+        """Get the object ID field with a not-null constraint."""
+        stmt = '''
+            SELECT
+                LOWER(COLUMN_NAME)
+            FROM
+                ALL_TAB_COLS
+            WHERE
+                UPPER(OWNER) = UPPER('{schema}') AND
+                UPPER(TABLE_NAME) = UPPER('{name}') AND
+                NULLABLE = 'N' AND
+                COLUMN_NAME LIKE 'OBJECTID%'
+        '''.format(schema=self._owner, name=self.name)
+        fields = self._exec(stmt)
+        assert len(fields) == 1 and len(fields[0]) == 1 and \
+            'Could not get OBJECTID field for {}'.format(self.name)
+        # This should never happen, but assert it anyway to be clear.
+        return fields[0][0]
 
     # @property
     # def _geom_field_i(self):
@@ -185,7 +221,7 @@ class Table(object):
         # Check if we need to scrub m-values.
         # WKT will look like `POLYGON M (...)`
         if geom_field and ' M ' in rows[0][geom_field_i]:
-            scrub_m_geom_type_re = re.compile(self.geom_type + ' M')
+            scrub_m_geom_type_re = re.compile('[A-Z]+ M')
             scrub_m_value_re = re.compile(' 1.#QNAN000')
             for row in rows:
                 geom = row[geom_field_i]
@@ -209,10 +245,12 @@ class Table(object):
 
     def _prepare_geom(self, geom, srid, transform_srid=None, multi_geom=True):
         """Prepares WKT geometry by projecting and casting as necessary."""
-        geom = "SDE.ST_Geometry('{}', {})".format(geom, srid)
+
+        # Uncomment this to use write method #1 (see write function for details)
+        # geom = "SDE.ST_Geometry('{}', {})".format(geom, srid)
 
         # Handle 3D geometries
-        # TODO: screen these with regex
+        # TODO screen these with regex
         if 'NaN' in geom:
             geom = geom.replace('NaN', '0')
             geom = "ST_Force_2D({})".format(geom)
@@ -254,8 +292,15 @@ class Table(object):
 
     def write(self, rows, from_srid=None, chunk_size=None):
         """
-        Inserts dictionary row objects in the the database 
+        Inserts dictionary row objects in the the database.
         Args: list of row dicts, table name, ordered field names
+
+        Originally this formed one big INSERT statement with a chunks of x
+        rows, but it's considerably faster to use the cx_Oracle `executemany` 
+        function. See methods 1 and 2 below.
+
+        TODO: it might be faster to call NEXTVAL on the DB sequence for OBJECTID
+        rather than use the SDE helper function.
         """
         if len(rows) == 0:
             return
@@ -264,6 +309,7 @@ class Table(object):
         # optional, such as autoincrementing integers.
         fields = rows[0].keys()
         geom_field = self.geom_field
+        geom_type = self.geom_type
         srid = from_srid or self.srid
         row_geom_type = re.match('[A-Z]+', rows[0][geom_field]).group() \
             if geom_field else None
@@ -273,7 +319,7 @@ class Table(object):
         # have the same geom type.)
         if geom_field:
             # Check for a geom_type first, in case the table is empty.
-            if self.geom_type and geom_type.startswith('MULTI') and \
+            if geom_type and geom_type.startswith('MULTI') and \
                 not row_geom_type.startswith('MULTI'):
                 multi_geom = True
             else:
@@ -283,19 +329,60 @@ class Table(object):
         type_map = OrderedDict()
         for field in fields:
             try:
-                type_map[field] = [x['type'] for x in self.metadata if x['name'] == field][0]
+                type_map[field] = [x['type'] for x in self.metadata if \
+                    x['name'] == field][0]
             except IndexError:
-                print(self.metadata)
                 raise ValueError('Field `{}` does not exist'.format(field))
         type_map_items = type_map.items()
 
         # Prepare cursor for many inserts
-        fields_joined = ', '.join(fields)
-        placeholders = ', '.join(':' + x for x in fields)
+
+        # # METHOD 1: one big SQL statement. Note you also have to uncomment a
+        # # line in _prepare_geom to make this work.
+        # # In Oracle this looks like:
+        # # INSERT ALL
+        # #    INTO t (col1, col2, col3) VALUES ('val1_1', 'val1_2', 'val1_3')
+        # #    INTO t (col1, col2, col3) VALUES ('val2_1', 'val2_2', 'val2_3')
+        # # SELECT 1 FROM DUAL;
+        # fields_joined = ', '.join(fields)
+        # stmt = "INSERT ALL {} SELECT 1 FROM DUAL"
+        
+        # # We always have to pass in a value for OBJECTID (or whatever the SDE
+        # # PK field is; sometimes it's something like OBJECTID_3). Check to see
+        # # if the user passed in a value for object ID (not likely), otherwise 
+        # # hardcode the sequence incrementor into the prepared statement.
+        # if self.objectid_field in fields:
+        #     into_clause = "INTO {} ({}) VALUES ({{}})".format(self.name, \
+        #         fields_joined)
+        # else:
+        #     incrementor = "SDE.GDB_UTIL.NEXT_ROWID('{}', '{}')".format(self._owner, self.name)
+        #     into_clause = "INTO {} ({}, {}) VALUES ({{}}, {})".format(self.name, fields_joined, self.objectid_field, incrementor)
+        
+        # METHOD 2: executemany (not working with SDE.ST_Geometry call)
+        placeholders = []
+        stmt_fields = list(fields)
+        # Create placeholders for prepared statement
+        for field in fields:
+            if field == self.geom_field:
+                placeholders.append('SDE.ST_Geometry(:{}, {})'\
+                    .format(field, self.srid))
+            else:
+                placeholders.append(':' + field)
+        # Inject the object ID field if it's missing from the supplied rows
+        if self.objectid_field not in fields:
+            stmt_fields.append(self.objectid_field)
+            incrementor = "SDE.GDB_UTIL.NEXT_ROWID('{}', '{}')"\
+                .format(self._owner, self.name)
+            placeholders.append(incrementor)
+        # Prepare statement
+        placeholders_joined = ', '.join(placeholders)
+        stmt_fields_joined = ', '.join(stmt_fields)
         stmt = "INSERT INTO {} ({}) VALUES ({})".format(self.name, \
-            fields_joined, placeholders)
+            stmt_fields_joined, placeholders_joined)
         self._c.prepare(stmt)
 
+        # END OF METHODS
+        
         len_rows = len(rows)
         if chunk_size is None or len_rows < chunk_size:
             iterations = 1
@@ -306,7 +393,7 @@ class Table(object):
         # Make list of value lists
         for i in range(0, iterations):
             val_rows = []
-            # cur_stmt = stmt
+            cur_stmt = stmt
             if chunk_size:
                 start = i * chunk_size
                 end = min(len_rows, start + chunk_size)
@@ -322,20 +409,23 @@ class Table(object):
                         val = self._prepare_geom(geom, srid, \
                             multi_geom=multi_geom)
                         val_row.append(val)
-
                     else:
                         val = self._prepare_val(row[field], type_)
-                        val_row.append(val)                        
+                        val_row.append(val)
                 val_rows.append(val_row)
 
             # Execute
-            # vals_joined = ['({})'.format(', '.join(vals)) for vals in val_rows]
-            # rows_joined = ', '.join(vals_joined)
-            # cur_stmt += rows_joined
-            print(val_rows)
+            # # METHOD 1
+            # vals_joined = [', '.join(vals) for vals in val_rows]
+            # cur_into_clauses = ' '.join([into_clause.format(x) for x in vals_joined])
+            # cur_stmt = cur_stmt.format(cur_into_clauses)
+            # self._c.execute(cur_stmt)
+            # self._save()
+
+            # METHOD 2
             self._c.executemany(None, val_rows)
             self._save()
-            
+
     def _save(self):
         """Convenience method for committing changes."""
         self.db.save()

@@ -1,7 +1,7 @@
 from datum.postgis import Table as PostgisTable
 from datum.oracle_stgeom import Table as OracleStgeomTable
 
-CLASS_MAP = {
+TABLE_CLASS_MAP = {
     'postgis':          PostgisTable,
     'oracle-stgeom':    OracleStgeomTable,
 }
@@ -10,13 +10,26 @@ class Table(object):
     """Proxy class for tables."""
     def __init__(self, db, name):
         self.db = db
-        self.name = name
 
-        _ChildTable = CLASS_MAP[db.scheme]
+        # Check for a schema
+        name = name
+        if '.' in name:
+            comps = name.split('.')
+            self.schema = comps[0]
+            self.name = comps[1]
+        else:
+            self.schema = None
+            self.name = name
+
+        _ChildTable = TABLE_CLASS_MAP[db.adapter]
         self._child = _ChildTable(self)
 
     def __str__(self):
-        return 'Table: {}'.format(self.name)
+        if self.schema:
+            str_ = '.'.join(self.schema, self.name)
+        else:
+            str_ = self.name
+        return 'Table: {}'.format(str_)
 
     @property
     def pk_field(self):
