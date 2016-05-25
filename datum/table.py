@@ -26,7 +26,7 @@ class Table(object):
 
     def __str__(self):
         if self.schema:
-            str_ = '.'.join(self.schema, self.name)
+            str_ = '.'.join([self.schema, self.name])
         else:
             str_ = self.name
         return 'Table: {}'.format(str_)
