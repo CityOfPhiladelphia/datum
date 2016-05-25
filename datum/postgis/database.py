@@ -14,7 +14,7 @@ class Database(object):
         url = parent.url
         self.parent = parent
         p = parse_url(url)
-        self.scheme = p['scheme']
+        self.adapter = p['scheme']
         self.host = p['host']
         self.user = p['user']
         self.password = p['password']
