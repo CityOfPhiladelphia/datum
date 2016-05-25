@@ -18,6 +18,8 @@ FIELD_TYPE_MAP = {
     # Not sure why cx_Oracle returns this for a NUMBER field.
     'LONG_STRING':  'num',
 }
+m_geom_type_re = re.compile(' M(?= )')
+m_value_re = re.compile(' 1.#QNAN000')
 
 class Table(object):
     """Oracle ST_Geometry table."""
@@ -73,9 +75,17 @@ class Table(object):
 
     def _get_geom_type(self):
         """
-        This is complicated with SDE and may change from release to release.
-        Basically allowable types are stored in a bit mask in sde.layers.
-        Use Oracle `bitwise and` to unpack.
+        Returns the OGC geometry type for a table.
+
+        This is complicated because SDE.ST_GeomType doesn't return anything
+        when the table is empty. As a workaround, inspect the bitmasked values
+        of the EFLAGS column of SDE.LAYERS to guess what geom type was
+        specified at time of creation. Sometimes, however, the multipart flag
+        is set to true but the actual geometries are stored as single-part.
+        For now, any geometry in a multipart-enabled column will be returned as
+        MULTIxxx (see `read` method for more).
+
+        Shout-out to Vince as usual:
         http://gis.stackexchange.com/questions/193424/get-the-geometry-type-of-an-empty-arcsde-feature-class
         """
         stmt = '''
@@ -168,6 +178,21 @@ class Table(object):
         return "SDE.ST_AsText({}) AS {}"\
             .format(geom_field_t, geom_field)
 
+    def _has_m_value(self, wkt):
+        """Checks a WKT geometry for an m-value (used in linear referencing.)"""
+        return (m_geom_type_re.search(wkt) is not None)
+
+    def _remove_m_value(self, wkt):
+        """
+        Removes the m-value from a WKT geometry.
+        TODO: do this more elegantly/generically.
+        """
+        # Take the `M` out
+        wkt = m_geom_type_re.sub('', wkt)
+        # Take the  1.#QNAN000 out.
+        wkt = m_value_re.sub('', wkt)
+        return wkt
+
     def read(self, fields=None, aliases=None, geom_field=None, to_srid=None,
         return_geom=True, limit=None, where=None, sort=None):
         # If no geom_field was specified and we're supposed to return geom, 
@@ -220,15 +245,16 @@ class Table(object):
 
         # Check if we need to scrub m-values.
         # WKT will look like `POLYGON M (...)`
-        if geom_field and ' M ' in rows[0][geom_field_i]:
-            scrub_m_geom_type_re = re.compile('[A-Z]+ M')
-            scrub_m_value_re = re.compile(' 1.#QNAN000')
-            for row in rows:
-                geom = row[geom_field_i]
-                geom = scrub_m_geom_type_re.sub(self.geom_type, geom)
-                geom = scrub_m_value_re.sub('', geom)
-                row[geom_field_i] = geom
+        if geom_field:
+            if self._has_m_value(rows[0][geom_field_i]):
+                for row in rows:
+                    geom = self._remove_m_value(row[geom_field_i])
+                    row[geom_field_i] = geom
         
+            # TODO if the WKT geom is single but the geom_type for the table
+            # is multi, we may want to convert it. Seems to be working for now
+            # though.
+
         # Dictify.
         rows = [dict(zip(fields_lower, row)) for row in rows]
 
