@@ -1,6 +1,8 @@
 from .database import Database
-# from .table import Table
 
 def connect(url):
-    db = Database(url)
-    return db
+    # TODO this should support things other than databases, like CSV sheets.
+    return Database(url)
+
+def db(url):
+    return Database(url)
