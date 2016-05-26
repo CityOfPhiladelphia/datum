@@ -6,9 +6,11 @@ from psycopg2 import ProgrammingError
 
 FIELD_TYPE_MAP = {
     'integer':              'num',
+    'numeric':              'num',
     'double precision':     'num',
     'text':                 'text',
     'character varying':    'text',
+    'date':                 'date',
     'USER-DEFINED':         'geom',
 }
 
@@ -195,15 +197,14 @@ class Table(object):
         # Make all vals strings for inserting into SQL statement.
         val = str(val)
 
-        if type_ == 'text':
+        # TODO dates should be converted to real dates, not strings
+        if type_ in ['text', 'date']:
             if len(val) > 0:
                 val = val.replace("'", "''")    # Escape quotes
                 val = "'{}'".format(val)
             else:
                 val = "''"
-        elif type_ == 'num':
-            pass
-        elif type_ == 'geom':
+        elif type_ in ['num', 'geom']:
             pass
         else:
             raise TypeError("Unhandled type: '{}'".format(type_))
