@@ -1,0 +1,6 @@
+cx-Oracle==5.2.1
+-e git+https://github.com/CityOfPhiladelphia/datum.git@05ce88764551e670d7af5236fa72e9d879210631#egg=datum
+psycopg2==2.6.1
+pyproj==1.9.5.1
+Shapely==1.5.15
+six==1.10.0
