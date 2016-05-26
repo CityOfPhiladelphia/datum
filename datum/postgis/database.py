@@ -80,10 +80,16 @@ class Database(object):
             name:   my_table
             type:   integer
         '''
-        
+        field_map = {
+            'num':      'numeric',
+            'text':     'text',
+            'date':     'date',
+            'geom':     'text',
+        }
+
         # Make concatenated string of columns, datatypes
         col_string_list = ['id serial']
-        col_string_list += ['{} {}'.format(x['name'], x['type']) for x in cols]
+        col_string_list += ['{} {}'.format(x['name'], field_map[x['type']]) for x in cols]
         col_string_list.append('PRIMARY KEY(id)')
         col_string = ', '.join(col_string_list)
 
