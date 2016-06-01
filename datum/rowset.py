@@ -1,0 +1,2 @@
+class RowSet(object):
+    pass
