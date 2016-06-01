@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 from collections import OrderedDict
 from datum.util import dbl_quote, WktTransformer
 from cx_Oracle import OBJECT as CxOracleObject
@@ -272,6 +273,10 @@ class Table(object):
     def _prepare_geom(self, geom, srid, transform_srid=None, multi_geom=True):
         """Prepares WKT geometry by projecting and casting as necessary."""
 
+        if geom is None:
+            # TODO: should this use the `EMPTY` keyword?
+            return '{} EMPTY'.format(self.geom_type)
+
         # Uncomment this to use write method #1 (see write function for details)
         # geom = "SDE.ST_Geometry('{}', {})".format(geom, srid)
 
@@ -281,7 +286,8 @@ class Table(object):
             geom = geom.replace('NaN', '0')
             geom = "ST_Force_2D({})".format(geom)
 
-        # Convert curve geometries (these aren't supported by PostGIS)
+        # TODO this was copied over from PostGIS, but maybe Oracle can handle
+        # them as-is?
         if 'CURVE' in geom or geom.startswith('CIRC'):
             geom = "ST_CurveToLine({})".format(geom)
         # Reproject if necessary
@@ -303,15 +309,21 @@ class Table(object):
         val = str(val)
 
         if type_ == 'text':
-            if len(val) > 0:
-                val = val.replace("'", "''")    # Escape quotes
-                val = "'{}'".format(val)
-            else:
-                val = "''"
+            pass
+            # With executemany we don't need this
+            # if len(val) > 0:
+            #     val = val.replace("'", "''")    # Escape quotes
+            #     # val = "'{}'".format(val)
+            # else:
+            #     val = "''"
         elif type_ == 'num':
             pass
         elif type_ == 'geom':
             pass
+        elif type_ == 'date':
+            # Convert datetimes to ISO-8601
+            if isinstance(val, datetime):
+                val = val.isoformat()
         else:
             raise TypeError("Unhandled type: '{}'".format(type_))
         return val
@@ -337,9 +349,17 @@ class Table(object):
         geom_field = self.geom_field
         geom_type = self.geom_type
         srid = from_srid or self.srid
-        row_geom_type = re.match('[A-Z]+', rows[0][geom_field]).group() \
-            if geom_field else None
         table_geom_type = self.geom_type if geom_field else None
+        # row_geom_type = re.match('[A-Z]+', rows[0][geom_field]).group() \
+        #     if geom_field else None
+
+        # Look for an insert row with a geom to get the geom type.
+        row_geom_type = None
+        for row in rows:
+            geom = row[geom_field]
+            if geom:
+                row_geom_type = re.match('[A-Z]+', geom).group()
+                break
 
         # Do we need to cast the geometry to a MULTI type? (Assuming all rows 
         # have the same geom type.)
@@ -389,9 +409,13 @@ class Table(object):
         stmt_fields = list(fields)
         # Create placeholders for prepared statement
         for field in fields:
-            if field == self.geom_field:
+            type_ = type_map[field]
+            if type_ == 'geom':
                 placeholders.append('SDE.ST_Geometry(:{}, {})'\
                     .format(field, self.srid))
+            elif type_ == 'date':
+                # Insert an ISO-8601 timestring
+                placeholders.append("TO_TIMESTAMP(:{}, 'YYYY-MM-DD\"T\"HH24:MI:SS\"+00:00\"')".format(field))
             else:
                 placeholders.append(':' + field)
         # Inject the object ID field if it's missing from the supplied rows
