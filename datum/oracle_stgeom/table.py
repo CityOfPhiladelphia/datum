@@ -305,17 +305,9 @@ class Table(object):
         if val is None:
             return 'NULL'
 
-        # Make all vals strings for inserting into SQL statement.
-        val = str(val)
-
+        # TODO handle types. Seems to be working without this for most cases.
         if type_ == 'text':
             pass
-            # With executemany we don't need this
-            # if len(val) > 0:
-            #     val = val.replace("'", "''")    # Escape quotes
-            #     # val = "'{}'".format(val)
-            # else:
-            #     val = "''"
         elif type_ == 'num':
             pass
         elif type_ == 'geom':
@@ -475,6 +467,15 @@ class Table(object):
             # METHOD 2
             self._c.executemany(None, val_rows)
             self._save()
+
+    def delete(self, cascade=False):
+        """Delete all rows."""
+        name = self._name_p
+        # RESTART IDENTITY resets sequence generators.
+        stmt = "TRUNCATE TABLE {}".format(name)
+        stmt += ' CASCADE' if cascade else ''
+        self._c.execute(stmt)
+        self.db.save()
 
     def _save(self):
         """Convenience method for committing changes."""
