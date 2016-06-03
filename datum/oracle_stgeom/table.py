@@ -72,7 +72,10 @@ class Table(object):
         '''.format(self._owner.upper(), self.name.upper())
         self._c.execute(stmt)
         row = self._c.fetchone()
-        return row[0]
+        srid = None
+        if isinstance(row, list):
+            srid = row[0]
+        return srid
 
     def _get_geom_type(self):
         """
@@ -100,7 +103,11 @@ class Table(object):
                 owner = '{}' and
                 table_name = '{}'
         '''.format(self._owner.upper(), self.name.upper())
-        point, line, polygon, multipart = self._exec(stmt)[0]
+        # If the table isn't registered with SDE, this will fail.
+        try:
+            point, line, polygon, multipart = self._exec(stmt)[0]
+        except IndexError:
+            return None
         if point > 0:
             geom_type = 'POINT'
         elif line > 0:
@@ -309,6 +316,7 @@ class Table(object):
         if type_ == 'text':
             pass
         elif type_ == 'num':
+
             pass
         elif type_ == 'geom':
             pass
