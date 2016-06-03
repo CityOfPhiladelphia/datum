@@ -144,9 +144,9 @@ class Table(object):
                 COLUMN_NAME LIKE 'OBJECTID%'
         '''.format(schema=self._owner, name=self.name)
         fields = self._exec(stmt)
-        assert len(fields) == 1 and len(fields[0]) == 1 and \
-            'Could not get OBJECTID field for {}'.format(self.name)
-        # This should never happen, but assert it anyway to be clear.
+        # When reading a non-spatial table, there may not be an object ID field
+        if not (len(fields) == 1 and len(fields[0]) == 1):
+            return None
         return fields[0][0]
 
     # @property
@@ -303,7 +303,7 @@ class Table(object):
     def _prepare_val(self, val, type_):
         """Prepare a value for entry into the DB."""
         if val is None:
-            return 'NULL'
+            return None
 
         # TODO handle types. Seems to be working without this for most cases.
         if type_ == 'text':
@@ -411,7 +411,7 @@ class Table(object):
             else:
                 placeholders.append(':' + field)
         # Inject the object ID field if it's missing from the supplied rows
-        if self.objectid_field not in fields:
+        if self.objectid_field and self.objectid_field not in fields:
             stmt_fields.append(self.objectid_field)
             incrementor = "SDE.GDB_UTIL.NEXT_ROWID('{}', '{}')"\
                 .format(self._owner, self.name)
