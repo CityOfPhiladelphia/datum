@@ -72,9 +72,10 @@ class Table(object):
         '''.format(self._owner.upper(), self.name.upper())
         self._c.execute(stmt)
         row = self._c.fetchone()
-        srid = None
-        if isinstance(row, list):
+        try:
             srid = row[0]
+        except TypeError:
+            srid = None
         return srid
 
     def _get_geom_type(self):
