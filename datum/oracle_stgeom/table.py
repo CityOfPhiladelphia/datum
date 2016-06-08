@@ -2,9 +2,7 @@ import re
 from datetime import datetime
 from collections import OrderedDict
 from datum.util import dbl_quote, WktTransformer
-from cx_Oracle import OBJECT as CxOracleObject
 import cx_Oracle
-
 
 # These are strings because one type (OBJECTVAR) isn't importable from 
 # the cx_Oracle module.
@@ -18,6 +16,7 @@ FIELD_TYPE_MAP = {
     'OBJECTVAR':    'geom',
     # Not sure why cx_Oracle returns this for a NUMBER field.
     'LONG_STRING':  'num',
+    'NCLOB':        'clob',
 }
 m_geom_type_re = re.compile(' M(?= )')
 m_value_re = re.compile(' 1.#QNAN000')
@@ -60,7 +59,7 @@ class Table(object):
 
     @property
     def fields(self):
-        return [x['name'] for x in self.metadata]
+        return self.metadata.keys()
 
     def _get_srid(self):
         stmt = '''
@@ -125,17 +124,16 @@ class Table(object):
         stmt = "SELECT * FROM {} WHERE 1 = 0".format(self._name_p)
         self._c.execute(stmt)
         desc = self._c.description
-        fields = []
+        fields = OrderedDict()
         for field in desc:
             name = field[0].lower()
             type_ = field[1].__name__
             assert type_ in FIELD_TYPE_MAP, '{} not a known field type'\
                 .format(type_)
-
-            fields.append({
-                'name':     name,
+            fields[name] = {
+                # 'name':     name,
                 'type':     FIELD_TYPE_MAP[type_],
-            })
+            }
         return fields
 
     def _get_objectid_field(self):
@@ -164,12 +162,13 @@ class Table(object):
     #     return self.fields.index(self.geom_field)
 
     def _get_geom_field(self):
-        f = [x for x in self.metadata if x['type'] == 'geom']
+        f = [field for field, desc in self.metadata.items() \
+                if desc['type'] == 'geom']
         if len(f) == 0:
             return None
         elif len(f) > 1:
             raise LookupError('Multiple geometry fields')
-        return f[0]['name'].lower()
+        return f[0].lower()
 
     @property
     def non_geom_fields(self):
@@ -317,14 +316,20 @@ class Table(object):
         if type_ == 'text':
             pass
         elif type_ == 'num':
-
             pass
         elif type_ == 'geom':
             pass
         elif type_ == 'date':
             # Convert datetimes to ISO-8601
             if isinstance(val, datetime):
-                val = val.isoformat()
+                # val = val.isoformat()
+                # Force microsecond output
+                val = val.strftime('%Y-%m-%dT%H:%M:%S.%f+00:00')
+        elif type_ == 'clob':
+            # Cast as a CLOB object so cx_Oracle doesn't try to make it a LONG
+            var = self._c.var(cx_Oracle.CLOB)
+            var.setvalue(0, val)
+            val = var
         else:
             raise TypeError("Unhandled type: '{}'".format(type_))
         return val
@@ -345,8 +350,11 @@ class Table(object):
             return
 
         # Get fields from the row because some fields from self.fields may be
-        # optional, such as autoincrementing integers.
+        # optional, such as an autoincrementing PK.
         fields = rows[0].keys()
+        # Sort so LOB fields are at the end
+        fields = sorted(fields, key=lambda x: 'lob' in self.metadata[x]['type'])
+        
         geom_field = self.geom_field
         geom_type = self.geom_type
         srid = from_srid or self.srid
@@ -359,7 +367,11 @@ class Table(object):
         for row in rows:
             geom = row[geom_field]
             if geom:
-                row_geom_type = re.match('[A-Z]+', geom).group()
+                try:
+                    row_geom_type = re.match('[A-Z]+', geom).group()
+                # For "bytes-like objects"
+                except TypeError:
+                    row_geom_type = re.match(b'[A-Z]+', geom).group()
                 break
 
         # Do we need to cast the geometry to a MULTI type? (Assuming all rows 
@@ -373,11 +385,11 @@ class Table(object):
                 multi_geom = False
 
         # Make a map of non geom field name => type
+        # TODO we might not need this since self.metadata is now mappy
         type_map = OrderedDict()
         for field in fields:
             try:
-                type_map[field] = [x['type'] for x in self.metadata if \
-                    x['name'] == field][0]
+                type_map[field] = self.metadata[field]['type']
             except IndexError:
                 raise ValueError('Field `{}` does not exist'.format(field))
         type_map_items = type_map.items()
@@ -407,7 +419,7 @@ class Table(object):
         
         # METHOD 2: executemany (not working with SDE.ST_Geometry call)
         placeholders = []
-        stmt_fields = list(fields)
+
         # Create placeholders for prepared statement
         for field in fields:
             type_ = type_map[field]
@@ -416,10 +428,12 @@ class Table(object):
                     .format(field, self.srid))
             elif type_ == 'date':
                 # Insert an ISO-8601 timestring
-                placeholders.append("TO_TIMESTAMP(:{}, 'YYYY-MM-DD\"T\"HH24:MI:SS\"+00:00\"')".format(field))
+                placeholders.append("TO_TIMESTAMP(:{}, 'YYYY-MM-DD\"T\"HH24:MI:SS.FF\"+00:00\"')".format(field))
             else:
                 placeholders.append(':' + field)
+        
         # Inject the object ID field if it's missing from the supplied rows
+        stmt_fields = list(fields)
         if self.objectid_field and self.objectid_field not in fields:
             stmt_fields.append(self.objectid_field)
             incrementor = "SDE.GDB_UTIL.NEXT_ROWID('{}', '{}')"\
@@ -474,7 +488,10 @@ class Table(object):
             # self._save()
 
             # METHOD 2
+            # print(stmt)
+            # print(val_rows)
             self._c.executemany(None, val_rows)
+            # print(self._c.getbatcherrors())
             self._save()
 
     def delete(self, cascade=False):

@@ -1,3 +1,4 @@
+import os
 import cx_Oracle
 from datum.util import parse_url
 # from .table import Table
@@ -19,12 +20,19 @@ class Database(object):
         dsn = '{user}/{password}@{host}'.format(**self.__dict__)
         if self.name: dsn += '/' + self.name
 
+        # Prevent cx_Oracle from converting everything to ASCII.
+        os.environ['NLS_LANG'] = '.UTF8'
+
         self.cxn = cx_Oracle.connect(dsn)
         self._c = self.cxn.cursor()
 
     def execute(self, stmt):
         self._c.execute(stmt)
-        rows = self._c.fetchall()
+        try:
+            rows = self._c.fetchall()
+        # Return rowcount for non-SELECT operations
+        except cx_Oracle.InterfaceError:
+            return self._c.rowcount
         # Unpack single values
         if len(rows) > 0 and len(rows[0]) == 1:
             rows = [x[0] for x in rows]
