@@ -16,7 +16,7 @@ FIELD_TYPE_MAP = {
     'OBJECTVAR':    'geom',
     # Not sure why cx_Oracle returns this for a NUMBER field.
     'LONG_STRING':  'num',
-    'NCLOB':        'clob',
+    'NCLOB':        'nclob',
 }
 m_geom_type_re = re.compile(' M(?= )')
 m_value_re = re.compile(' 1.#QNAN000')
@@ -201,6 +201,11 @@ class Table(object):
         wkt = m_value_re.sub('', wkt)
         return wkt
 
+    def count(self):
+        stmt = "SELECT COUNT(*) FROM {}".format(self._name_p)
+        self._c.execute(stmt)
+        return self._c.fetchone()[0]
+
     def read(self, fields=None, aliases=None, geom_field=None, to_srid=None,
         return_geom=True, limit=None, where=None, sort=None):
         # If no geom_field was specified and we're supposed to return geom, 
@@ -325,11 +330,12 @@ class Table(object):
                 # val = val.isoformat()
                 # Force microsecond output
                 val = val.strftime('%Y-%m-%dT%H:%M:%S.%f+00:00')
-        elif type_ == 'clob':
+        elif type_ == 'nclob':
+            pass
             # Cast as a CLOB object so cx_Oracle doesn't try to make it a LONG
-            var = self._c.var(cx_Oracle.CLOB)
-            var.setvalue(0, val)
-            val = var
+            # var = self._c.var(cx_Oracle.NCLOB)
+            # var.setvalue(0, val)
+            # val = var
         else:
             raise TypeError("Unhandled type: '{}'".format(type_))
         return val
@@ -476,6 +482,8 @@ class Table(object):
                         val_row.append(val)
                     else:
                         val = self._prepare_val(row[field], type_)
+                        # TODO: NCLOBS should be inserted via array vars
+                        # if type_ == 'nclob':
                         val_row.append(val)
                 val_rows.append(val_row)
 
