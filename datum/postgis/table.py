@@ -191,21 +191,21 @@ class Table(object):
 
     def _prepare_val(self, val, type_):
         """Prepare a value for entry into the DB."""
-        if val is None:
-            return 'NULL'
-
-        # Make all vals strings for inserting into SQL statement.
-        val = str(val)
-
-        # TODO dates should be converted to real dates, not strings
-        if type_ in ['text', 'date']:
-            if len(val) > 0:
-                val = val.replace("'", "''")    # Escape quotes
-                val = "'{}'".format(val)
+        if type_ == 'text':
+            val = str(val) if val else ''
+            # if len(val) > 0:
+            val = val.replace("'", "''")    # Escape quotes
+            val = "'{}'".format(val)
+        elif type_ == 'num':
+            if val is None:
+                val = 'NULL'
             else:
-                val = "''"
-        elif type_ in ['num', 'geom']:
-            pass
+                val = str(val)
+        elif type_ == 'date':
+            # TODO dates should be converted to real dates, not strings
+            val = str(val)
+        elif type_ == 'geom':
+            val = str(val)
         else:
             raise TypeError("Unhandled type: '{}'".format(type_))
         return val
