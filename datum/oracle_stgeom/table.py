@@ -368,21 +368,21 @@ class Table(object):
         # row_geom_type = re.match('[A-Z]+', rows[0][geom_field]).group() \
         #     if geom_field else None
 
-        # Look for an insert row with a geom to get the geom type.
-        row_geom_type = None
-        for row in rows:
-            geom = row[geom_field]
-            if geom:
-                try:
-                    row_geom_type = re.match('[A-Z]+', geom).group()
-                # For "bytes-like objects"
-                except TypeError:
-                    row_geom_type = re.match(b'[A-Z]+', geom).group()
-                break
-
-        # Do we need to cast the geometry to a MULTI type? (Assuming all rows 
+        # Do we need to cast the geometry to a MULTI type? (Assuming all rows
         # have the same geom type.)
         if geom_field:
+            # Look for an insert row with a geom to get the geom type.
+            row_geom_type = None
+            for row in rows:
+                geom = row[geom_field]
+                if geom:
+                    try:
+                        row_geom_type = re.match('[A-Z]+', geom).group()
+                    # For "bytes-like objects"
+                    except TypeError:
+                        row_geom_type = re.match(b'[A-Z]+', geom).group()
+                    break
+
             # Check for a geom_type first, in case the table is empty.
             if geom_type and geom_type.startswith('MULTI') and \
                 not row_geom_type.startswith('MULTI'):
