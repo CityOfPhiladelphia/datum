@@ -8,5 +8,10 @@ setup(name='datum',
       author_email='maps@phila.gov',
       license='MIT',
       packages=['datum'],
+      install_requires=['six==1.10.0'],
+      extras_require={
+        'oracle_stgeom': ['cx-Oracle==5.2.1', 'pyproj==1.9.5.1'],
+        'postgis': ['psycopg2==2.6.1'],
+      },
       # entry_points={'console_scripts': ['ais=ais:manager.run']},
       zip_safe=False)
