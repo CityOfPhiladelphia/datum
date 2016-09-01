@@ -1,7 +1,8 @@
 import re
 from datetime import datetime
 from collections import OrderedDict
-from datum.util import dbl_quote, WktTransformer
+from datum.util import dbl_quote
+from datum.oracle_stgeom.util import WktTransformer
 import cx_Oracle
 
 # These are strings because one type (OBJECTVAR) isn't importable from 
