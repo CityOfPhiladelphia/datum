@@ -5,7 +5,7 @@ from datum.util import dbl_quote
 from datum.oracle_stgeom.util import WktTransformer
 import cx_Oracle
 
-# These are strings because one type (OBJECTVAR) isn't importable from 
+# These are strings because one type (OBJECTVAR) isn't importable from
 # the cx_Oracle module.
 FIELD_TYPE_MAP = {
     'NUMBER':       'num',
@@ -98,7 +98,7 @@ class Table(object):
                 bitand(eflags, 2),
                 bitand(eflags, 4) + bitand(eflags, 8),
                 bitand(eflags, 16),
-                bitand(eflags, 262144) 
+                bitand(eflags, 262144)
             from sde.layers
             where
                 owner = '{}' and
@@ -179,7 +179,7 @@ class Table(object):
     def _get_wkt_selector(self, to_srid=None):
         assert self.geom_field
         geom_field_t = geom_field = self.geom_field
-        # SDE.ST_Transform doesn't work when the datums differ. Unfortunately, 
+        # SDE.ST_Transform doesn't work when the datums differ. Unfortunately,
         # 4326 <=> 2272 is one of those. Using Shapely + PyProj for now.
         # if to_srid and to_srid != self.srid:
         #     geom_field_t = "SDE.ST_Transform({}, {})"\
@@ -209,7 +209,7 @@ class Table(object):
 
     def read(self, fields=None, aliases=None, geom_field=None, to_srid=None,
         return_geom=True, limit=None, where=None, sort=None):
-        # If no geom_field was specified and we're supposed to return geom, 
+        # If no geom_field was specified and we're supposed to return geom,
         # get it from the object.
         geom_field = geom_field or (self.geom_field if return_geom else None)
 
@@ -234,13 +234,13 @@ class Table(object):
             stmt += " WHERE ROWNUM <= {}".format(limit)
 
         self._c.execute(stmt)
-        
+
         # Handle aliases
         # fields = [re.sub('.+ AS ', '', x, flags=re.IGNORECASE) for x in fields]
         if aliases:
           fields = [aliases[x] if x in aliases else x for x in fields]
 
-        fields_lower = [x.lower() for x in fields] 
+        fields_lower = [x.lower() for x in fields]
         if geom_field:
             geom_field_i = fields.index(geom_field)
         rows = []
@@ -264,7 +264,7 @@ class Table(object):
                 for row in rows:
                     geom = self._remove_m_value(row[geom_field_i])
                     row[geom_field_i] = geom
-        
+
             # TODO if the WKT geom is single but the geom_type for the table
             # is multi, we may want to convert it. Seems to be working for now
             # though.
@@ -279,7 +279,7 @@ class Table(object):
             for row in rows:
                 geom = row[geom_field_l]
                 geom_t = tsf.transform(geom)
-                row[geom_field_l] = geom_t        
+                row[geom_field_l] = geom_t
 
         return rows
 
@@ -347,7 +347,7 @@ class Table(object):
         Args: list of row dicts, table name, ordered field names
 
         Originally this formed one big INSERT statement with a chunks of x
-        rows, but it's considerably faster to use the cx_Oracle `executemany` 
+        rows, but it is considerably faster to use the cx_Oracle `executemany`
         function. See methods 1 and 2 below.
 
         TODO: it might be faster to call NEXTVAL on the DB sequence for OBJECTID
@@ -361,7 +361,7 @@ class Table(object):
         fields = rows[0].keys()
         # Sort so LOB fields are at the end
         fields = sorted(fields, key=lambda x: 'lob' in self.metadata[x]['type'])
-        
+
         geom_field = self.geom_field
         geom_type = self.geom_type
         srid = from_srid or self.srid
@@ -412,10 +412,10 @@ class Table(object):
         # # SELECT 1 FROM DUAL;
         # fields_joined = ', '.join(fields)
         # stmt = "INSERT ALL {} SELECT 1 FROM DUAL"
-        
+
         # # We always have to pass in a value for OBJECTID (or whatever the SDE
         # # PK field is; sometimes it's something like OBJECTID_3). Check to see
-        # # if the user passed in a value for object ID (not likely), otherwise 
+        # # if the user passed in a value for object ID (not likely), otherwise
         # # hardcode the sequence incrementor into the prepared statement.
         # if self.objectid_field in fields:
         #     into_clause = "INTO {} ({}) VALUES ({{}})".format(self.name, \
@@ -423,7 +423,7 @@ class Table(object):
         # else:
         #     incrementor = "SDE.GDB_UTIL.NEXT_ROWID('{}', '{}')".format(self._owner, self.name)
         #     into_clause = "INTO {} ({}, {}) VALUES ({{}}, {})".format(self.name, fields_joined, self.objectid_field, incrementor)
-        
+
         # METHOD 2: executemany (not working with SDE.ST_Geometry call)
         placeholders = []
 
@@ -438,7 +438,7 @@ class Table(object):
                 placeholders.append("TO_TIMESTAMP(:{}, 'YYYY-MM-DD\"T\"HH24:MI:SS.FF\"+00:00\"')".format(field))
             else:
                 placeholders.append(':' + field)
-        
+
         # Inject the object ID field if it's missing from the supplied rows
         stmt_fields = list(fields)
         if self.objectid_field and self.objectid_field not in fields:
@@ -454,7 +454,7 @@ class Table(object):
         self._c.prepare(stmt)
 
         # END OF METHODS
-        
+
         len_rows = len(rows)
         if chunk_size is None or len_rows < chunk_size:
             iterations = 1
