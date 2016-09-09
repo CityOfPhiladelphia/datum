@@ -64,9 +64,15 @@ class Database(object):
         return self._tables
 
     def _get_tables(self):
-        tables = self.table('information_schema.tables').read(where=\
-            "table_schema = 'public' AND table_type = 'BASE TABLE'")
-        return [x['table_name'] for x in tables]
+        # tables = self.table('information_schema.tables').read(where=\
+        #     "table_schema = 'public' AND table_type = 'BASE TABLE'")
+        from pprint import pprint
+        stmt = "SELECT * FROM pg_catalog.pg_tables WHERE schemaname != 'pg_catalog' AND schemaname != 'information_schema'"
+        self._c.execute(stmt)
+        tables = self._c.fetchall()
+        #pprint(tables)
+
+        return [x['tablename'] for x in tables]
 
     def table(self, name):
         # return Table(self, name)

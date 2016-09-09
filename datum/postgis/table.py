@@ -53,7 +53,7 @@ class Table(object):
 
     @property
     def count(self):
-        return self._exec('SELECT COUNT(*) FROM {}'.format(self._name_p))[0]
+        return self._exec('SELECT COUNT(*) FROM {}'.format(self._name_p))[0]["count"]
 
     def _exec(self, stmt):
         self._c.execute(stmt)
