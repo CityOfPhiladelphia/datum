@@ -73,7 +73,7 @@ class Table(object):
 
         for infile in infiles:
             reader = csv.DictReader(infile)
-            self.write(list(reader), from_srid=from_srid, chunk_size=chunk_size)
+            self.write(reader, from_srid=from_srid, chunk_size=chunk_size)
 
     def read(self, fields=None, aliases=None, geom_field=None, to_srid=None, \
         return_geom=True, limit=None, where=None, sort=None):

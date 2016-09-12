@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from itertools import chain
 import re
 from datum.util import dbl_quote
 from psycopg2 import ProgrammingError
@@ -226,15 +227,28 @@ class Table(object):
         Inserts dictionary row objects in the the database
         Args: list of row dicts, table name, ordered field names
         """
-        if len(rows) == 0:
+        # Split the rows into chunks of the given size, and pull off the first
+        # one.
+        if chunk_size is None:
+            first_chunk, chunks = list(rows), []
+        else:
+            chunks = util.grouper(rows, chunk_size)
+            try:
+                first_chunk = list(next(filter(None, chunks)))
+            except StopIteration:
+                return
+
+        # Pull out the first row from the first chunk, if it is not empty.
+        if len(first_chunk) == 0:
             return
+        row = first_chunk[0]
 
         # Get fields from the row because some fields from self.fields may be
         # optional, such as autoincrementing integers.
-        fields = rows[0].keys()
+        fields = row.keys()
         geom_field = self.geom_field
         srid = from_srid or self.srid
-        row_geom_type = re.match('[A-Z]+', rows[0][geom_field]).group() \
+        row_geom_type = re.match('[A-Z]+', row[geom_field]).group() \
             if geom_field else None
         table_geom_type = self.geom_type if geom_field else None
 
@@ -259,25 +273,11 @@ class Table(object):
         fields_joined = ', '.join(fields)
         stmt = "INSERT INTO {} ({}) VALUES ".format(self.name, fields_joined)
 
-        len_rows = len(rows)
-        if chunk_size is None or len_rows < chunk_size:
-            iterations = 1
-        else:
-            iterations = int(len_rows / chunk_size)
-            iterations += (len_rows % chunk_size > 0)  # round up
-
-        # Make list of value lists
-        for i in range(0, iterations):
+        for chunk in chain([first_chunk], chunks):
             val_rows = []
             cur_stmt = stmt
-            if chunk_size:
-                start = i * chunk_size
-                end = min(len_rows, start + chunk_size)
-            else:
-                start = i
-                end = len_rows
 
-            for row in rows[start:end]:
+            for row in filter(None, chunk):
                 val_row = []
                 for field, type_ in type_map_items:
                     if type_ == 'geom':
