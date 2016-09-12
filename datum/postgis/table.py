@@ -8,6 +8,7 @@ FIELD_TYPE_MAP = {
     'integer':              'num',
     'numeric':              'num',
     'double precision':     'num',
+    'real':                 'num',
     'text':                 'text',
     'character varying':    'text',
     'date':                 'date',
