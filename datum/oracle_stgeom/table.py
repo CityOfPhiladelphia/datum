@@ -450,7 +450,7 @@ class Table(object):
                 # Insert an ISO-8601 timestring
                 placeholders.append("TO_TIMESTAMP(:{}, 'YYYY-MM-DD\"T\"HH24:MI:SS.FF\"+00:00\"')".format(field))
             else:
-                placeholders.append(':' + field)
+                placeholders.append(':' + field + '_')
 
         # Inject the object ID field if it's missing from the supplied rows
         stmt_fields = [icase[field] for field in fields]
