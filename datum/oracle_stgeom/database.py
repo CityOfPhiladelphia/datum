@@ -28,6 +28,10 @@ class Database(object):
 
     def execute(self, stmt):
         self._c.execute(stmt)
+
+        class SimpleView (list):
+            pass
+
         try:
             rows = self._c.fetchall()
         # Return rowcount for non-SELECT operations
@@ -36,6 +40,10 @@ class Database(object):
         # Unpack single values
         if len(rows) > 0 and len(rows[0]) == 1:
             rows = [x[0] for x in rows]
+
+        rows = SimpleView(rows)
+        rows.header = [field[0] for field in self._c.description]
+
         return rows
 
     def close(self):

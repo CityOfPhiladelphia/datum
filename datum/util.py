@@ -29,3 +29,11 @@ def chunks_of(iterable, size):
     iterator = iter(iterable)
     while True:
         yield get_chunk(iterator, size)
+
+def isiterable(obj):
+    try:
+        iter(obj)
+    except TypeError:
+        return False
+    else:
+        return True

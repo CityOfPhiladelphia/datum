@@ -1,5 +1,6 @@
 import click
 import datum
+from util import isiterable
 
 import logging
 log = logging.getLogger(__name__)
@@ -22,6 +23,18 @@ def truncate(table, connection):
 def load(csvfile, table, connection):
     db = datum.connect(connection)
     db.table(table).load(csvfile)
+
+@cli.command()
+@click.option('--connection', '-d', help='The database connection string', required=True)
+@click.argument('sql')
+def execute(sql, connection):
+    db = datum.connect(connection)
+    rows = db.execute(sql)
+    if isiterable(rows):
+        import csv, sys
+        writer = csv.writer(sys.stdout)
+        writer.writerow(rows.header)
+        writer.writerows(rows)
 
 if __name__ == '__main__':
     cli()
