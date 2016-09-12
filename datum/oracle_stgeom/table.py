@@ -353,14 +353,20 @@ class Table(object):
         TODO: it might be faster to call NEXTVAL on the DB sequence for OBJECTID
         rather than use the SDE helper function.
         """
-        if len(rows) == 0:
+        try:
+            len_rows = len(rows)
+        except TypeError:
+            rows = tuple(rows)
+            len_rows = len(rows)
+
+        if len_rows == 0:
             return
 
         # Get fields from the row because some fields from self.fields may be
         # optional, such as an autoincrementing PK.
         fields = rows[0].keys()
         # Sort so LOB fields are at the end
-        fields = sorted(fields, key=lambda x: 'lob' in self.metadata[x]['type'])
+        fields = sorted(fields, key=lambda x: 'lob' in self.metadata[x.lower()]['type'])
 
         geom_field = self.geom_field
         geom_type = self.geom_type
@@ -396,7 +402,7 @@ class Table(object):
         type_map = OrderedDict()
         for field in fields:
             try:
-                type_map[field] = self.metadata[field]['type']
+                type_map[field] = self.metadata[field.lower()]['type']
             except IndexError:
                 raise ValueError('Field `{}` does not exist'.format(field))
         type_map_items = type_map.items()
