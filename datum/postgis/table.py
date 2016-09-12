@@ -31,6 +31,10 @@ class Table(object):
         return 'Table: {}'.format(self.name)
 
     @property
+    def schema(self):
+        return self._parent.schema
+
+    @property
     def name(self):
         return self._parent.name
 
@@ -38,9 +42,11 @@ class Table(object):
     def _name_p(self):
         """The table name prepared for SQL queries."""
         name = self.name.lower()
+        schema = self.schema.lower()
+
         # Handle schema prefixes
-        if '.' in name:
-            return '.'.join([dbl_quote(x) for x in name.split('.')])
+        if schema:
+            return '.'.join([dbl_quote(x) for x in (schema, name)])
         else:
             return dbl_quote(name)
 
@@ -158,7 +164,7 @@ class Table(object):
 
     def delete(self, cascade=False):
         """Delete all rows."""
-        name = dbl_quote(self.name)
+        name = self._name_p
         # RESTART IDENTITY resets sequence generators.
         stmt = "TRUNCATE {} RESTART IDENTITY".format(name)
         stmt += ' CASCADE' if cascade else ''
