@@ -43,7 +43,7 @@ class Table(object):
     def _name_p(self):
         """The table name prepared for SQL queries."""
         name = self.name.lower()
-        schema = self.schema.lower()
+        schema = self.schema.lower() if self.schema else None
 
         # Handle schema prefixes
         if schema:
