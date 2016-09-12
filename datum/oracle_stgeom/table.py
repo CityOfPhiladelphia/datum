@@ -122,7 +122,7 @@ class Table(object):
         return geom_type
 
     def _get_metadata(self):
-        stmt = "SELECT * FROM {} WHERE 1 = 0".format(self._name_p)
+        stmt = 'SELECT * FROM "{}" WHERE 1 = 0'.format(self._name_p)
         self._c.execute(stmt)
         desc = self._c.description
         fields = OrderedDict()
@@ -433,6 +433,13 @@ class Table(object):
         # METHOD 2: executemany (not working with SDE.ST_Geometry call)
         placeholders = []
 
+        # Build up an exact-case mapping of field names
+        actual_fields = self.fields
+        icase = {}
+        for field in fields:
+            actual_field = [n for n in actual_fields if field.lower() == n.lower()][0]
+            icase[field] = actual_field
+
         # Create placeholders for prepared statement
         for field in fields:
             type_ = type_map[field]
@@ -446,7 +453,7 @@ class Table(object):
                 placeholders.append(':' + field)
 
         # Inject the object ID field if it's missing from the supplied rows
-        stmt_fields = list(fields)
+        stmt_fields = [icase[field] for field in fields]
         if self.objectid_field and self.objectid_field not in fields:
             stmt_fields.append(self.objectid_field)
             incrementor = "SDE.GDB_UTIL.NEXT_ROWID('{}', '{}')"\
@@ -454,8 +461,8 @@ class Table(object):
             placeholders.append(incrementor)
         # Prepare statement
         placeholders_joined = ', '.join(placeholders)
-        stmt_fields_joined = ', '.join(stmt_fields)
-        stmt = "INSERT INTO {} ({}) VALUES ({})".format(self.name, \
+        stmt_fields_joined = '", "'.join(stmt_fields)
+        stmt = 'INSERT INTO "{}" ("{}") VALUES ({})'.format(self.name, \
             stmt_fields_joined, placeholders_joined)
         self._c.prepare(stmt)
 
@@ -513,7 +520,7 @@ class Table(object):
         """Delete all rows."""
         name = self._name_p
         # RESTART IDENTITY resets sequence generators.
-        stmt = "TRUNCATE TABLE {}".format(name)
+        stmt = 'TRUNCATE TABLE "{}"'.format(name)
         stmt += ' CASCADE' if cascade else ''
         self._c.execute(stmt)
         self.db.save()
