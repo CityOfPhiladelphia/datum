@@ -16,7 +16,7 @@ class Database(object):
         self.password = p['password']
         self.name = p['db_name']
         if self.name: self.name = self.name.lower()
-        
+
         dsn = '{user}/{password}@{host}'.format(**self.__dict__)
         if self.name: dsn += '/' + self.name
 
@@ -51,7 +51,7 @@ class Database(object):
 
     # def table(self, name):
     #     # Check for a schema
-    #     if '.' in 
+    #     if '.' in
     #     return self.parent.table(name)
 
     @property
@@ -75,7 +75,7 @@ class Database(object):
 
     def _dictify(self, geom_field=None):
         '''
-        Turns query results into a list of dictionaries. This reads from the 
+        Turns query results into a list of dictionaries. This reads from the
         cursor because calling fetchall() on rows breaks the geometry LOB.
         '''
         fields = [x[0].lower() for x in self._c.description]
@@ -112,7 +112,7 @@ class Database(object):
         fields = list(fields)  # Make a copy
         if fields != ['*']:
             if geom_field:
-                fields.append(self._wkt_getter(geom_field)) 
+                fields.append(self._wkt_getter(geom_field))
             fields_joined = ', '.join(fields)
             table = table.upper()
             stmt = "SELECT {} FROM {}".format(fields_joined, table)
@@ -155,14 +155,14 @@ class Database(object):
     def bulk_insert(self, table, rows, geom_field=None, from_srid=None, \
         multi_geom=True, chunk_size=None):
         '''
-        Inserts dictionary row objects in the the database 
+        Inserts dictionary row objects in the the database
         Args: list of row dicts, table name
         '''
         fields = rows[0].keys()
         if geom_field:
             non_geom_fields = [x for x in fields if x != geom_field]
         fields_joined = ', '.join(fields)
-        stmt = "INSERT INTO {} ({}) VALUES ".format(table, fields_joined)       
+        stmt = "INSERT INTO {} ({}) VALUES ".format(table, fields_joined)
 
         len_rows = len(rows)
         if chunk_size is None or len_rows < chunk_size:
