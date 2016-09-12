@@ -13,5 +13,8 @@ setup(name='datum',
         'oracle_stgeom': ['cx-Oracle==5.2.1', 'pyproj==1.9.5.1', 'shapely==1.5.17'],
         'postgis': ['psycopg2==2.6.1'],
       },
+      entry_points={
+        'console_scripts': ['datum=datum.cli:cli']
+      },
       # entry_points={'console_scripts': ['ais=ais:manager.run']},
       zip_safe=False)
