@@ -251,7 +251,7 @@ class Table(object):
         type_map = OrderedDict()
         for field in fields:
             try:
-                type_map[field] = [x['type'] for x in self.metadata if x['name'] == field][0]
+                type_map[field] = [x['type'] for x in self.metadata if x['name'].lower() == field.lower()][0]
             except IndexError:
                 raise ValueError('Field `{}` does not exist'.format(field))
         type_map_items = type_map.items()
