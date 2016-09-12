@@ -79,7 +79,7 @@ class Table(object):
         return_geom=True, limit=None, where=None, sort=None):
         """
         Read rows from the database.
-        
+
         ```
         Parameters
         ----------
