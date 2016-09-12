@@ -20,8 +20,12 @@ def parse_url(url):
     }
     return comps
 
-def grouper(iterable, n, fillvalue=None):
-    "Collect data into fixed-length chunks or blocks"
-    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx
-    args = [iter(iterable)] * n
-    return zip_longest(fillvalue=fillvalue, *args)
+def chunks_of(iterable, size):
+    """Return chunks of a max size of the iterable"""
+    def get_chunk(iterator, size):
+        for _ in range(size):
+            yield next(iterator)
+
+    iterator = iter(iterable)
+    while True:
+        yield get_chunk(iterator, size)

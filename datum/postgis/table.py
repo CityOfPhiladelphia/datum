@@ -1,7 +1,7 @@
 from collections import OrderedDict
 from itertools import chain
 import re
-from datum.util import dbl_quote
+from datum.util import dbl_quote, chunks_of
 from psycopg2 import ProgrammingError
 
 
@@ -232,9 +232,9 @@ class Table(object):
         if chunk_size is None:
             first_chunk, chunks = list(rows), []
         else:
-            chunks = util.grouper(rows, chunk_size)
+            chunks = chunks_of(rows, chunk_size)
             try:
-                first_chunk = list(next(filter(None, chunks)))
+                first_chunk = list(next(chunks))
             except StopIteration:
                 return
 
@@ -277,7 +277,7 @@ class Table(object):
             val_rows = []
             cur_stmt = stmt
 
-            for row in filter(None, chunk):
+            for row in chunk:
                 val_row = []
                 for field, type_ in type_map_items:
                     if type_ == 'geom':
