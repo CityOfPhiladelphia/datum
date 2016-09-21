@@ -431,39 +431,7 @@ class Table(object):
         #     into_clause = "INTO {} ({}, {}) VALUES ({{}}, {})".format(self.name, fields_joined, self.objectid_field, incrementor)
 
         # METHOD 2: executemany (not working with SDE.ST_Geometry call)
-        placeholders = []
-
-        # Build up an exact-case mapping of field names
-        actual_fields = self.fields
-        icase = {}
-        for field in fields:
-            actual_field = [n for n in actual_fields if field.lower() == n.lower()][0]
-            icase[field] = actual_field
-
-        # Create placeholders for prepared statement
-        for field in fields:
-            type_ = type_map[field]
-            if type_ == 'geom':
-                placeholders.append('SDE.ST_Geometry(:{}, {})'\
-                    .format(field, self.srid))
-            elif type_ == 'date':
-                # Insert an ISO-8601 timestring
-                placeholders.append("TO_TIMESTAMP(:{}, 'YYYY-MM-DD\"T\"HH24:MI:SS.FF\"+00:00\"')".format(field))
-            else:
-                placeholders.append(':' + field + '_')
-
-        # Inject the object ID field if it's missing from the supplied rows
-        stmt_fields = [icase[field] for field in fields]
-        if self.objectid_field and self.objectid_field not in fields:
-            stmt_fields.append(self.objectid_field)
-            incrementor = "SDE.GDB_UTIL.NEXT_ROWID('{}', '{}')"\
-                .format(self._owner, self.name)
-            placeholders.append(incrementor)
-        # Prepare statement
-        placeholders_joined = ', '.join(placeholders)
-        stmt_fields_joined = ', '.join(stmt_fields)
-        stmt = 'INSERT INTO {} ({}) VALUES ({})'.format(self.name, \
-            stmt_fields_joined, placeholders_joined)
+        stmt = self.build_insert_statement(fields, type_map)
         self._c.prepare(stmt)
 
         # END OF METHODS
@@ -515,6 +483,42 @@ class Table(object):
             self._c.executemany(None, val_rows)
             # print(self._c.getbatcherrors())
             self._save()
+
+    def build_insert_statement(self, input_fields, type_map):
+        placeholders = []
+
+        # Build up an exact-case mapping of field names
+        db_fields = self.fields
+        icase = {}
+        for field in input_fields:
+            db_field = [n for n in db_fields if field.lower() == n.lower()][0]
+            icase[field] = db_field
+
+        # Create placeholders for prepared statement
+        for field in input_fields:
+            type_ = type_map[field]
+            if type_ == 'geom':
+                placeholders.append('SDE.ST_Geometry(:{}, {})'\
+                    .format(field, self.srid))
+            elif type_ == 'date':
+                # Insert an ISO-8601 timestring
+                placeholders.append("TO_TIMESTAMP(:{}, 'YYYY-MM-DD\"T\"HH24:MI:SS.FF\"+00:00\"')".format(field))
+            else:
+                placeholders.append(':' + field + '_')
+
+        # Inject the object ID field if it's missing from the supplied rows
+        stmt_fields = [icase[field] for field in input_fields]
+        if self.objectid_field and self.objectid_field not in input_fields:
+            stmt_fields.append(self.objectid_field)
+            incrementor = "SDE.GDB_UTIL.NEXT_ROWID('{}', '{}')"\
+                .format(self._owner, self.name)
+            placeholders.append(incrementor)
+        # Prepare statement
+        placeholders_joined = ', '.join(placeholders)
+        stmt_fields_joined = ', '.join(stmt_fields)
+        stmt = 'INSERT INTO {} ({}) VALUES ({})'.format(self.name, \
+            stmt_fields_joined, placeholders_joined)
+        return stmt
 
     def delete(self, cascade=False):
         """Delete all rows."""
