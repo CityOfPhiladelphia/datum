@@ -461,8 +461,8 @@ class Table(object):
             placeholders.append(incrementor)
         # Prepare statement
         placeholders_joined = ', '.join(placeholders)
-        stmt_fields_joined = '", "'.join(stmt_fields)
-        stmt = 'INSERT INTO "{}" ("{}") VALUES ({})'.format(self.name, \
+        stmt_fields_joined = ', '.join(stmt_fields)
+        stmt = 'INSERT INTO {} ({}) VALUES ({})'.format(self.name, \
             stmt_fields_joined, placeholders_joined)
         self._c.prepare(stmt)
 

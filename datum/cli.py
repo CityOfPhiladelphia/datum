@@ -1,6 +1,5 @@
 import click
 import datum
-from util import isiterable
 
 import logging
 log = logging.getLogger(__name__)
@@ -30,7 +29,7 @@ def load(csvfile, table, connection):
 def execute(sql, connection):
     db = datum.connect(connection)
     rows = db.execute(sql)
-    if isiterable(rows):
+    if datum.util.isiterable(rows):
         import csv, sys
         writer = csv.writer(sys.stdout)
         writer.writerow(rows.header)
