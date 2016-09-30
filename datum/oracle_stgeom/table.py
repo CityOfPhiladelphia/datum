@@ -122,7 +122,7 @@ class Table(object):
         return geom_type
 
     def _get_metadata(self):
-        stmt = 'SELECT * FROM "{}" WHERE 1 = 0'.format(self._name_p)
+        stmt = "SELECT * FROM {} WHERE 1 = 0".format(self._name_p)
         self._c.execute(stmt)
         desc = self._c.description
         fields = OrderedDict()
@@ -402,7 +402,7 @@ class Table(object):
         type_map = OrderedDict()
         for field in fields:
             try:
-                type_map[field] = self.metadata[field.lower()]['type']
+                type_map[field] = self.metadata[field]['type']
             except IndexError:
                 raise ValueError('Field `{}` does not exist'.format(field))
         type_map_items = type_map.items()
@@ -524,7 +524,7 @@ class Table(object):
         """Delete all rows."""
         name = self._name_p
         # RESTART IDENTITY resets sequence generators.
-        stmt = 'TRUNCATE TABLE "{}"'.format(name)
+        stmt = "TRUNCATE TABLE {}".format(name)
         stmt += ' CASCADE' if cascade else ''
         self._c.execute(stmt)
         self.db.save()
