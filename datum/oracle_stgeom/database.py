@@ -30,6 +30,9 @@ class Database(object):
         self._c.execute(stmt)
 
         class SimpleView (list):
+            """
+            A trivial wrapper on `list` to allow attaching a header
+            """
             pass
 
         try:
