@@ -1,6 +1,7 @@
 from collections import OrderedDict
+from itertools import chain
 import re
-from datum.util import dbl_quote
+from datum.util import dbl_quote, chunks_of
 from psycopg2 import ProgrammingError
 
 
@@ -8,6 +9,7 @@ FIELD_TYPE_MAP = {
     'integer':              'num',
     'numeric':              'num',
     'double precision':     'num',
+    'real':                 'num',
     'text':                 'text',
     'character varying':    'text',
     'date':                 'date',
@@ -31,6 +33,10 @@ class Table(object):
         return 'Table: {}'.format(self.name)
 
     @property
+    def schema(self):
+        return self._parent.schema
+
+    @property
     def name(self):
         return self._parent.name
 
@@ -38,9 +44,11 @@ class Table(object):
     def _name_p(self):
         """The table name prepared for SQL queries."""
         name = self.name.lower()
+        schema = self.schema.lower() if self.schema else None
+
         # Handle schema prefixes
-        if '.' in name:
-            return '.'.join([dbl_quote(x) for x in name.split('.')])
+        if schema:
+            return '.'.join([dbl_quote(x) for x in (schema, name)])
         else:
             return dbl_quote(name)
 
@@ -97,10 +105,10 @@ class Table(object):
 
     def _get_geom_type(self):
         stmt = """
-            SELECT type 
-            FROM geometry_columns 
-            WHERE f_table_schema = 'public' 
-            AND f_table_name = '{}' 
+            SELECT type
+            FROM geometry_columns
+            WHERE f_table_schema = 'public'
+            AND f_table_name = '{}'
             and f_geometry_column = '{}';
         """.format(self.name, self.geom_field)
         return self._exec(stmt)[0]['type']
@@ -133,7 +141,7 @@ class Table(object):
             else:
                 fields = [dbl_quote(x) for x in fields]
             if geom_field and return_geom:
-                fields.append(self._wkt_getter(geom_field, to_srid=to_srid))    
+                fields.append(self._wkt_getter(geom_field, to_srid=to_srid))
             fields_joined = ', '.join(fields)
             stmt = "SELECT {} FROM {}".format(fields_joined, table_name)
         else:
@@ -158,7 +166,7 @@ class Table(object):
 
     def delete(self, cascade=False):
         """Delete all rows."""
-        name = dbl_quote(self.name)
+        name = self._name_p
         # RESTART IDENTITY resets sequence generators.
         stmt = "TRUNCATE {} RESTART IDENTITY".format(name)
         stmt += ' CASCADE' if cascade else ''
@@ -216,22 +224,35 @@ class Table(object):
 
     def write(self, rows, from_srid=None, chunk_size=None):
         """
-        Inserts dictionary row objects in the the database 
+        Inserts dictionary row objects in the the database
         Args: list of row dicts, table name, ordered field names
         """
-        if len(rows) == 0:
+        # Split the rows into chunks of the given size, and pull off the first
+        # one.
+        if chunk_size is None:
+            first_chunk, chunks = list(rows), []
+        else:
+            chunks = chunks_of(rows, chunk_size)
+            try:
+                first_chunk = list(next(chunks))
+            except StopIteration:
+                return
+
+        # Pull out the first row from the first chunk, if it is not empty.
+        if len(first_chunk) == 0:
             return
+        row = first_chunk[0]
 
         # Get fields from the row because some fields from self.fields may be
         # optional, such as autoincrementing integers.
-        fields = rows[0].keys()
+        fields = row.keys()
         geom_field = self.geom_field
         srid = from_srid or self.srid
-        row_geom_type = re.match('[A-Z]+', rows[0][geom_field]).group() \
+        row_geom_type = re.match('[A-Z]+', row[geom_field]).group() \
             if geom_field else None
         table_geom_type = self.geom_type if geom_field else None
 
-        # Do we need to cast the geometry to a MULTI type? (Assuming all rows 
+        # Do we need to cast the geometry to a MULTI type? (Assuming all rows
         # have the same geom type.)
         if geom_field:
             if self.geom_type.startswith('MULTI') and \
@@ -244,7 +265,7 @@ class Table(object):
         type_map = OrderedDict()
         for field in fields:
             try:
-                type_map[field] = [x['type'] for x in self.metadata if x['name'] == field][0]
+                type_map[field] = [x['type'] for x in self.metadata if x['name'].lower() == field.lower()][0]
             except IndexError:
                 raise ValueError('Field `{}` does not exist'.format(field))
         type_map_items = type_map.items()
@@ -252,25 +273,11 @@ class Table(object):
         fields_joined = ', '.join(fields)
         stmt = "INSERT INTO {} ({}) VALUES ".format(self.name, fields_joined)
 
-        len_rows = len(rows)
-        if chunk_size is None or len_rows < chunk_size:
-            iterations = 1
-        else:
-            iterations = int(len_rows / chunk_size)
-            iterations += (len_rows % chunk_size > 0)  # round up
-
-        # Make list of value lists
-        for i in range(0, iterations):
+        for chunk in chain([first_chunk], chunks):
             val_rows = []
             cur_stmt = stmt
-            if chunk_size:
-                start = i * chunk_size
-                end = min(len_rows, start + chunk_size)
-            else:
-                start = i
-                end = len_rows
 
-            for row in rows[start:end]:
+            for row in chunk:
                 val_row = []
                 for field, type_ in type_map_items:
                     if type_ == 'geom':
@@ -280,7 +287,7 @@ class Table(object):
 
                     else:
                         val = self._prepare_val(row[field], type_)
-                        val_row.append(val)                        
+                        val_row.append(val)
                 val_rows.append(val_row)
 
             # Execute

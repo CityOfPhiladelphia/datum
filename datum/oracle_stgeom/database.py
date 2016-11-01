@@ -16,7 +16,7 @@ class Database(object):
         self.password = p['password']
         self.name = p['db_name']
         if self.name: self.name = self.name.lower()
-        
+
         dsn = '{user}/{password}@{host}'.format(**self.__dict__)
         if self.name: dsn += '/' + self.name
 
@@ -28,6 +28,13 @@ class Database(object):
 
     def execute(self, stmt):
         self._c.execute(stmt)
+
+        class SimpleView (list):
+            """
+            A trivial wrapper on `list` to allow attaching a header
+            """
+            pass
+
         try:
             rows = self._c.fetchall()
         # Return rowcount for non-SELECT operations
@@ -36,6 +43,10 @@ class Database(object):
         # Unpack single values
         if len(rows) > 0 and len(rows[0]) == 1:
             rows = [x[0] for x in rows]
+
+        rows = SimpleView(rows)
+        rows.header = [field[0] for field in self._c.description]
+
         return rows
 
     def close(self):
@@ -43,7 +54,7 @@ class Database(object):
 
     # def table(self, name):
     #     # Check for a schema
-    #     if '.' in 
+    #     if '.' in
     #     return self.parent.table(name)
 
     @property
@@ -67,7 +78,7 @@ class Database(object):
 
     def _dictify(self, geom_field=None):
         '''
-        Turns query results into a list of dictionaries. This reads from the 
+        Turns query results into a list of dictionaries. This reads from the
         cursor because calling fetchall() on rows breaks the geometry LOB.
         '''
         fields = [x[0].lower() for x in self._c.description]
@@ -104,7 +115,7 @@ class Database(object):
         fields = list(fields)  # Make a copy
         if fields != ['*']:
             if geom_field:
-                fields.append(self._wkt_getter(geom_field)) 
+                fields.append(self._wkt_getter(geom_field))
             fields_joined = ', '.join(fields)
             table = table.upper()
             stmt = "SELECT {} FROM {}".format(fields_joined, table)
@@ -147,14 +158,14 @@ class Database(object):
     def bulk_insert(self, table, rows, geom_field=None, from_srid=None, \
         multi_geom=True, chunk_size=None):
         '''
-        Inserts dictionary row objects in the the database 
+        Inserts dictionary row objects in the the database
         Args: list of row dicts, table name
         '''
         fields = rows[0].keys()
         if geom_field:
             non_geom_fields = [x for x in fields if x != geom_field]
         fields_joined = ', '.join(fields)
-        stmt = "INSERT INTO {} ({}) VALUES ".format(table, fields_joined)       
+        stmt = "INSERT INTO {} ({}) VALUES ".format(table, fields_joined)
 
         len_rows = len(rows)
         if chunk_size is None or len_rows < chunk_size:

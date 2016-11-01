@@ -65,11 +65,22 @@ class Table(object):
         """Returns a list of field names."""
         return self._child.fields
 
+    def load(self, *infiles, **write_kwargs):
+        # See Table.write for the vaild write_kwargs
+        import csv
+
+        if len(infiles) == 0:
+            infiles = (sys.stdin,)
+
+        for infile in infiles:
+            reader = csv.DictReader(infile)
+            self.write(reader, **write_kwargs)
+
     def read(self, fields=None, aliases=None, geom_field=None, to_srid=None, \
         return_geom=True, limit=None, where=None, sort=None):
         """
         Read rows from the database.
-        
+
         ```
         Parameters
         ----------
