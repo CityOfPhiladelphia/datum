@@ -22,7 +22,7 @@ out_table.write(rows)
 
 ## Installation
 
-### Setting up Oracle on OS X
+### Setting up Oracle on OS X/Linux
 Following [this guide](https://web.archive.org/web/20160407232743/http://kevindalias.com/2014/03/26/how-to-set-up-cx_oracle-for-python-on-mac-os-x-10-89):
 
 1. Install the Oracle Instant Client. Download the 64-bit versions of the basic and sdk zip files [from oracle](http://www.oracle.com/technetwork/topics/intel-macsoft-096467.html).
