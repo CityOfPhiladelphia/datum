@@ -42,3 +42,4 @@ export ORACLE_HOME="/path/to/oracle"
 export DYLD_LIBRARY_PATH=$ORACLE_HOME
 export LD_LIBRARY_PATH=$ORACLE_HOME
 ```
+Note: Alternatively, you can install the Oracle Instant Client inside your virtual environment directory and set the environment variables contextually for the specific project.
