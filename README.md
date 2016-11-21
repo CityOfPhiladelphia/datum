@@ -1,6 +1,14 @@
 # Datum
 Simple spatial ETL.
 
+## Installation
+
+    pip install git+https://github.com/CityOfPhiladelphia/datum
+
+You'll also need to install dependencies for the drivers you're using. For example, to use PostGIS and Oracle ST_Geometry:
+
+    pip install pip install git+https://github.com/CityOfPhiladelphia/datum .[postgis] .[oracle_stgeom]
+
 ## Usage
 ```python
 import datum
