@@ -1,6 +1,16 @@
 # Datum
 Simple spatial ETL.
 
+## Installation
+
+    pip install git+https://github.com/CityOfPhiladelphia/datum
+
+You'll also need to install dependencies for the drivers you're using. For example, to use PostGIS and Oracle ST_Geometry:
+
+    pip install git+https://github.com/CityOfPhiladelphia/datum .[postgis] .[oracle_stgeom]
+
+Note: this step usually produces errors on Windows. Download `.whl` versions of these packages from [this site](http://www.lfd.uci.edu/~gohlke/pythonlibs/) and install them with `pip install /path/to/some_package.whl`.
+
 ## Usage
 ```python
 import datum
@@ -13,7 +23,7 @@ rows = table.read()
 for row in rows:
     wkt = row['shape']
     print('The geometry for object {} is {}'.format(row['objectid'], wkt))
-   
+
 # write out to a local postgres db. the `write` function just needs a list of row dictionaries.
 out_db = datum.connect('postgres://user:pass@localhost:5432/db_name')
 out_table = out_db.table('table_name')
