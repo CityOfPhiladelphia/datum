@@ -9,6 +9,8 @@ You'll also need to install dependencies for the drivers you're using. For examp
 
     pip install pip install git+https://github.com/CityOfPhiladelphia/datum .[postgis] .[oracle_stgeom]
 
+Note: this step generally usually errors on Windows. Download `.whl` versions of these packages from [this site](http://www.lfd.uci.edu/~gohlke/pythonlibs/) and install them with `pip install /path/to/some_package.whl`.
+
 ## Usage
 ```python
 import datum
