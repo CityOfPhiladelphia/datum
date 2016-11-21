@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(name='datum',
       version='0.1',
@@ -7,7 +7,7 @@ setup(name='datum',
       author='City of Philadelphia',
       author_email='maps@phila.gov',
       license='MIT',
-      packages=['datum'],
+      packages=find_packages('datum'),
       install_requires=['six==1.10.0'],
       extras_require={
         'oracle_stgeom': ['cx-Oracle==5.2.1', 'pyproj==1.9.5.1'],
