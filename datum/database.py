@@ -20,7 +20,8 @@ class Database(object):
         self._child = _ChildDatabase(self)
 
     def __str__(self):
-        fmt = 'Database: {adapter}://{user}:***@{host}'
+        fmt = 'Database: {}'.format(self.adapter)
+        fmt += '://{user}:***@{host}'
         fmt += '/' + self.name if self.name else ''
         return fmt.format(**self._child.__dict__)
 
