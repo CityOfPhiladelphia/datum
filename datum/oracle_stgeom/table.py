@@ -247,10 +247,11 @@ class Table(object):
         rows = []
 
         # Unpack geometry.
-        for source_row in self._c:
+        for i, source_row in enumerate(self._c):
             row = list(source_row)
             if geom_field:
-                row[geom_field_i] = row[geom_field_i].read()
+                geom = row[geom_field_i]
+                row[geom_field_i] = geom.read() if geom else None
             rows.append(row)
 
         # If there were no rows returned, don't move on to next step where
