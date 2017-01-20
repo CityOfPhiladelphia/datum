@@ -97,10 +97,10 @@ class Table(object):
 
     def _get_geom_type(self):
         stmt = """
-            SELECT type 
-            FROM geometry_columns 
-            WHERE f_table_schema = 'public' 
-            AND f_table_name = '{}' 
+            SELECT type
+            FROM geometry_columns
+            WHERE f_table_schema = 'public'
+            AND f_table_name = '{}'
             and f_geometry_column = '{}';
         """.format(self.name, self.geom_field)
         return self._exec(stmt)[0]['type']
@@ -125,6 +125,9 @@ class Table(object):
         # Enclose table name in quotes in case there are casing issues
         table_name = self._name_p
 
+        # default to table geom_field
+        geom_field = geom_field or self.geom_field
+
         # Form SQL statement
         if fields:
             if aliases:
@@ -133,13 +136,15 @@ class Table(object):
             else:
                 fields = [dbl_quote(x) for x in fields]
             if geom_field and return_geom:
-                fields.append(self._wkt_getter(geom_field, to_srid=to_srid))    
+                wkt_getter = self._wkt_getter(geom_field, to_srid=to_srid)
+                fields.append(wkt_getter)
             fields_joined = ', '.join(fields)
             stmt = "SELECT {} FROM {}".format(fields_joined, table_name)
         else:
             if geom_field:
+                wkt_getter = self._wkt_getter(geom_field, to_srid=to_srid)
                 stmt = "SELECT {}.*, {} FROM {}".format(table_name, \
-                    self._wkt_getter(geom_field, to_srid), table_name)
+                    wkt_getter, table_name)
             else:
                 stmt = "SELECT * FROM {}".format(table_name)
         if where:
@@ -216,7 +221,7 @@ class Table(object):
 
     def write(self, rows, from_srid=None, chunk_size=None):
         """
-        Inserts dictionary row objects in the the database 
+        Inserts dictionary row objects in the the database
         Args: list of row dicts, table name, ordered field names
         """
         if len(rows) == 0:
@@ -231,7 +236,7 @@ class Table(object):
             if geom_field else None
         table_geom_type = self.geom_type if geom_field else None
 
-        # Do we need to cast the geometry to a MULTI type? (Assuming all rows 
+        # Do we need to cast the geometry to a MULTI type? (Assuming all rows
         # have the same geom type.)
         if geom_field:
             if self.geom_type.startswith('MULTI') and \
@@ -280,7 +285,7 @@ class Table(object):
 
                     else:
                         val = self._prepare_val(row[field], type_)
-                        val_row.append(val)                        
+                        val_row.append(val)
                 val_rows.append(val_row)
 
             # Execute
