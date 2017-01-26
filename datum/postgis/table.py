@@ -141,7 +141,7 @@ class Table(object):
             fields_joined = ', '.join(fields)
             stmt = "SELECT {} FROM {}".format(fields_joined, table_name)
         else:
-            if geom_field:
+            if geom_field and return_geom:
                 wkt_getter = self._wkt_getter(geom_field, to_srid=to_srid)
                 stmt = "SELECT {}.*, {} FROM {}".format(table_name, \
                     wkt_getter, table_name)
