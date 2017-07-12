@@ -19,6 +19,7 @@ FIELD_TYPE_MAP = {
     # Not sure why cx_Oracle returns this for a NUMBER field.
     'LONG_STRING':  'num',
     'NCLOB':        'nclob',
+    'OBJECT':       'geom',
 }
 m_geom_type_re = re.compile(' M(?= )')
 m_value_re = re.compile(' 1.#QNAN000')
