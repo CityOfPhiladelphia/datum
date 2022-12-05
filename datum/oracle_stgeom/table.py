@@ -129,7 +129,11 @@ class Table(object):
         fields = OrderedDict()
         for field in desc:
             name = field[0].lower()
-            type_ = field[1].__name__
+            try:
+                type_ = field[1].__name__
+            except Exception:
+                # python3.10 now uses ".name"
+                type_ = field[1].name.replace("DB_TYPE_","")
             assert type_ in FIELD_TYPE_MAP, '{} not a known field type'\
                 .format(type_)
             fields[name] = {
