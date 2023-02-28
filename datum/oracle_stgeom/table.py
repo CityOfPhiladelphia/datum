@@ -137,6 +137,8 @@ class Table(object):
         for field in desc:
             name = field[0].lower()
             type_ = field[1].name
+            if type_ not in FIELD_TYPE_MAP:
+                type_ = field[1].name.replace("DB_TYPE_","")
             assert type_ in FIELD_TYPE_MAP, '{} not a known field type'\
                 .format(type_)
             fields[name] = {
