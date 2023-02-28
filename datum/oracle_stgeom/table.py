@@ -19,6 +19,13 @@ FIELD_TYPE_MAP = {
     # Not sure why cx_Oracle returns this for a NUMBER field.
     'LONG_STRING':  'num',
     'NCLOB':        'nclob',
+    'DB_TYPE_NUMBER': 'num',
+    'DB_TYPE_OBJECT': 'geom',
+    'DB_TYPE_NCLOB': 'nclob',
+    'DB_TYPE_TIMESTAMP': 'date',
+    'DB_TYPE_TIMESTAMP_TZ': 'date',
+    'DB_TYPE_VARCHAR': 'text',
+    'DB_TYPE_NVARCHAR': 'text'
 }
 m_geom_type_re = re.compile(' M(?= )')
 m_value_re = re.compile(' 1.#QNAN000')
@@ -129,11 +136,7 @@ class Table(object):
         fields = OrderedDict()
         for field in desc:
             name = field[0].lower()
-            try:
-                type_ = field[1].__name__
-            except Exception:
-                # python3.10 now uses ".name"
-                type_ = field[1].name.replace("DB_TYPE_","")
+            type_ = field[1].name
             assert type_ in FIELD_TYPE_MAP, '{} not a known field type'\
                 .format(type_)
             fields[name] = {
@@ -521,3 +524,4 @@ class Table(object):
     def _save(self):
         """Convenience method for committing changes."""
         self.db.save()
+
