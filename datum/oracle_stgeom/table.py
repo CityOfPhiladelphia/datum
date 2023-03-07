@@ -12,6 +12,7 @@ FIELD_TYPE_MAP = {
     'NCHAR':        'text',
     'STRING':       'text',
     'DATETIME':     'date',
+    'DATE':         'date',
     'TIMESTAMP':    'date',
     'FIXED_CHAR':   'text',
     # HACK: Nothing else in an SDE database should be using OBJECTVAR.
@@ -38,12 +39,19 @@ class Table(object):
         self.name = parent.name
         self.schema = parent.schema
         self._c = self.db._c
+        self._c.outputtypehandler = self.output_type_handler
         self.metadata = self._get_metadata()
         self.geom_field = self._get_geom_field()
         self.geom_type = self._get_geom_type() if self.geom_field else None
         self.srid = self._get_srid() if self.geom_field else None
         self.objectid_field = self._get_objectid_field()
 
+    def output_type_handler(self, cursor, name, default_type, size, precision, scale):
+        if default_type == cx_Oracle.DB_TYPE_CLOB:
+            return cursor.var(cx_Oracle.DB_TYPE_LONG, arraysize=cursor.arraysize)
+        if default_type == cx_Oracle.DB_TYPE_BLOB:
+            return cursor.var(cx_Oracle.DB_TYPE_LONG_RAW, arraysize=cursor.arraysize)
+    
     @property
     def _name_p(self):
         """Returns the table name prepended with the schema name, prepared for
@@ -253,15 +261,8 @@ class Table(object):
         fields_lower = [x.lower() for x in fields]
         if geom_field:
             geom_field_i = fields.index(geom_field)
-        rows = []
-
-        # Unpack geometry.
-        for i, source_row in enumerate(self._c):
-            row = list(source_row)
-            if geom_field:
-                geom = row[geom_field_i]
-                row[geom_field_i] = geom.read() if geom else None
-            rows.append(row)
+        
+        rows = self._c.fetchall()
 
         # If there were no rows returned, don't move on to next step where
         # we try to get a row.
