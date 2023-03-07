@@ -226,7 +226,7 @@ class Table(object):
         return self._c.fetchone()[0]
 
     def read(self, fields=None, aliases=None, geom_field=None, to_srid=None,
-        return_geom=True, limit=None, where=None, sort=None):
+        return_geom=True, limit=None, where=None, sort=None, arraysize=None):
         # If no geom_field was specified and we're supposed to return geom,
         # get it from the object.
         geom_field = geom_field or (self.geom_field if return_geom else None)
@@ -251,6 +251,11 @@ class Table(object):
         elif limit:
             stmt += " WHERE ROWNUM <= {}".format(limit)
 
+        if arraysize: 
+            old = self._c.arraysize
+            self._c.arraysize = arraysize
+            print(f'arraysize changed from {old} to {self._c.arraysize}')
+                        
         self._c.execute(stmt)
 
         # Handle aliases
