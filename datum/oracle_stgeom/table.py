@@ -265,9 +265,11 @@ class Table(object):
         # WKT will look like `POLYGON M (...)`
         if geom_field:
             if self._has_m_value(rows[0][geom_field_i]):
-                for row in rows:
+                for i, row in enumerate(rows):
+                    row = list(row)
                     geom = self._remove_m_value(row[geom_field_i])
                     row[geom_field_i] = geom
+                    rows[i] = row
 
             # TODO if the WKT geom is single but the geom_type for the table
             # is multi, we may want to convert it. Seems to be working for now
