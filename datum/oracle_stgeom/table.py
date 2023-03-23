@@ -141,7 +141,7 @@ class Table(object):
                 type_ = field[1].__name__
             except Exception:
                 # python3.10 now uses ".name"
-                type_ = field[1].name.replace("DB_TYPE_","")
+                type_ = field[1].name
                 if type_ not in FIELD_TYPE_MAP:
                     type_ = field[1].name.replace("DB_TYPE_","")
             assert type_ in FIELD_TYPE_MAP, '{} not a known field type'\
