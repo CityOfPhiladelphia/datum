@@ -49,11 +49,17 @@ class Table(object):
         self.objectid_field = self._get_objectid_field()
 
     def output_type_handler(self, cursor, name, default_type, size, precision, scale):
-        if default_type == cx_Oracle.DB_TYPE_CLOB:
-            return cursor.var(cx_Oracle.DB_TYPE_LONG, arraysize=cursor.arraysize)
-        if default_type == cx_Oracle.DB_TYPE_BLOB:
-            return cursor.var(cx_Oracle.DB_TYPE_LONG_RAW, arraysize=cursor.arraysize)
-    
+        if cx_Oracle.__version__ >= '8':
+            if default_type == cx_Oracle.DB_TYPE_CLOB:
+                return cursor.var(cx_Oracle.DB_TYPE_LONG, arraysize=cursor.arraysize)
+            if default_type == cx_Oracle.DB_TYPE_BLOB:
+                return cursor.var(cx_Oracle.DB_TYPE_LONG_RAW, arraysize=cursor.arraysize)
+        else:
+            if default_type == cx_Oracle.CLOB:
+                return cursor.var(cx_Oracle.LONG_STRING, arraysize=cursor.arraysize)
+            if default_type == cx_Oracle.BLOB:
+                return cursor.var(cx_Oracle.LONG_BINARY, arraysize=cursor.arraysize)
+
     @property
     def _name_p(self):
         """Returns the table name prepended with the schema name, prepared for
