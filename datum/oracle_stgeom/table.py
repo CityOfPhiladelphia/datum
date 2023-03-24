@@ -16,6 +16,7 @@ FIELD_TYPE_MAP = {
     'FIXED_CHAR':   'text',
     # HACK: Nothing else in an SDE database should be using OBJECTVAR.
     'OBJECTVAR':    'geom',
+    'OBJECT':       'geom',
     # Not sure why cx_Oracle returns this for a NUMBER field.
     'LONG_STRING':  'num',
     'NCLOB':        'nclob',
@@ -136,9 +137,13 @@ class Table(object):
         fields = OrderedDict()
         for field in desc:
             name = field[0].lower()
-            type_ = field[1].name
-            if type_ not in FIELD_TYPE_MAP:
-                type_ = field[1].name.replace("DB_TYPE_","")
+            try:
+                type_ = field[1].__name__
+            except Exception:
+                # python3.10 now uses ".name"
+                type_ = field[1].name
+                if type_ not in FIELD_TYPE_MAP:
+                    type_ = field[1].name.replace("DB_TYPE_","")
             assert type_ in FIELD_TYPE_MAP, '{} not a known field type'\
                 .format(type_)
             fields[name] = {
