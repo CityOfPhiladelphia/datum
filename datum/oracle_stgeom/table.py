@@ -12,8 +12,10 @@ FIELD_TYPE_MAP = {
     'NCHAR':        'text',
     'STRING':       'text',
     'DATETIME':     'date',
+    'DATE':         'date',
     'TIMESTAMP':    'date',
     'FIXED_CHAR':   'text',
+    'CHAR':         'text',
     # HACK: Nothing else in an SDE database should be using OBJECTVAR.
     'OBJECTVAR':    'geom',
     'OBJECT':       'geom',
@@ -39,12 +41,19 @@ class Table(object):
         self.name = parent.name
         self.schema = parent.schema
         self._c = self.db._c
+        self._c.outputtypehandler = self.output_type_handler
         self.metadata = self._get_metadata()
         self.geom_field = self._get_geom_field()
         self.geom_type = self._get_geom_type() if self.geom_field else None
         self.srid = self._get_srid() if self.geom_field else None
         self.objectid_field = self._get_objectid_field()
 
+    def output_type_handler(self, cursor, name, default_type, size, precision, scale):
+        if default_type == cx_Oracle.DB_TYPE_CLOB:
+            return cursor.var(cx_Oracle.DB_TYPE_LONG, arraysize=cursor.arraysize)
+        if default_type == cx_Oracle.DB_TYPE_BLOB:
+            return cursor.var(cx_Oracle.DB_TYPE_LONG_RAW, arraysize=cursor.arraysize)
+    
     @property
     def _name_p(self):
         """Returns the table name prepended with the schema name, prepared for
@@ -147,7 +156,6 @@ class Table(object):
             assert type_ in FIELD_TYPE_MAP, '{} not a known field type'\
                 .format(type_)
             fields[name] = {
-                # 'name':     name,
                 'type':     FIELD_TYPE_MAP[type_],
             }
         return fields
@@ -171,12 +179,6 @@ class Table(object):
             return None
         return fields[0][0]
 
-    # @property
-    # def _geom_field_i(self):
-    #     """Get the index of the geometry field."""
-    #     assert self.geom_field
-    #     return self.fields.index(self.geom_field)
-
     def _get_geom_field(self):
         f = [field for field, desc in self.metadata.items() \
                 if desc['type'] == 'geom']
@@ -188,7 +190,6 @@ class Table(object):
 
     @property
     def non_geom_fields(self):
-        # return [x['name'].lower() for x in self.metadata if x['type'] != 'geom']
         return [x for x in self.fields if x != self.geom_field]
 
     def _get_wkt_selector(self, to_srid=None):
@@ -196,9 +197,6 @@ class Table(object):
         geom_field_t = geom_field = self.geom_field
         # SDE.ST_Transform doesn't work when the datums differ. Unfortunately,
         # 4326 <=> 2272 is one of those. Using Shapely + PyProj for now.
-        # if to_srid and to_srid != self.srid:
-        #     geom_field_t = "SDE.ST_Transform({}, {})"\
-        #         .format(geom_field, to_srid)
         return "SDE.ST_AsText({}) AS {}"\
             .format(geom_field_t, geom_field)
 
@@ -223,7 +221,7 @@ class Table(object):
         return self._c.fetchone()[0]
 
     def read(self, fields=None, aliases=None, geom_field=None, to_srid=None,
-        return_geom=True, limit=None, where=None, sort=None):
+        return_geom=True, limit=None, where=None, sort=None, arraysize=None):
         # If no geom_field was specified and we're supposed to return geom,
         # get it from the object.
         geom_field = geom_field or (self.geom_field if return_geom else None)
@@ -235,8 +233,6 @@ class Table(object):
             if geom_field:
                 select_items.append(self._get_wkt_selector(to_srid=to_srid))
                 fields.append(geom_field)
-            # else:
-            #     raise ValueError('No geometry field to select')
         joined = ', '.join(select_items)
         stmt = "SELECT {} FROM {}".format(joined, self._name_p)
 
@@ -248,25 +244,22 @@ class Table(object):
         elif limit:
             stmt += " WHERE ROWNUM <= {}".format(limit)
 
+        if arraysize: 
+            old = self._c.arraysize
+            self._c.arraysize = arraysize
+            print('arraysize changed from {} to {}'.format(old, self._c.arraysize))
+                        
         self._c.execute(stmt)
 
         # Handle aliases
-        # fields = [re.sub('.+ AS ', '', x, flags=re.IGNORECASE) for x in fields]
         if aliases:
           fields = [aliases[x] if x in aliases else x for x in fields]
 
         fields_lower = [x.lower() for x in fields]
         if geom_field:
             geom_field_i = fields.index(geom_field)
-        rows = []
-
-        # Unpack geometry.
-        for i, source_row in enumerate(self._c):
-            row = list(source_row)
-            if geom_field:
-                geom = row[geom_field_i]
-                row[geom_field_i] = geom.read() if geom else None
-            rows.append(row)
+        
+        rows = self._c.fetchall()
 
         # If there were no rows returned, don't move on to next step where
         # we try to get a row.
@@ -277,9 +270,11 @@ class Table(object):
         # WKT will look like `POLYGON M (...)`
         if geom_field:
             if self._has_m_value(rows[0][geom_field_i]):
-                for row in rows:
+                for i, row in enumerate(rows):
+                    row = list(row)
                     geom = self._remove_m_value(row[geom_field_i])
                     row[geom_field_i] = geom
+                    rows[i] = row
 
             # TODO if the WKT geom is single but the geom_type for the table
             # is multi, we may want to convert it. Seems to be working for now
@@ -306,9 +301,6 @@ class Table(object):
             # TODO: should this use the `EMPTY` keyword?
             return '{} EMPTY'.format(self.geom_type)
 
-        # Uncomment this to use write method #1 (see write function for details)
-        # geom = "SDE.ST_Geometry('{}', {})".format(geom, srid)
-
         # Handle 3D geometries
         # TODO screen these with regex
         if 'NaN' in geom:
@@ -321,8 +313,6 @@ class Table(object):
             geom = "ST_CurveToLine({})".format(geom)
         # Reproject if necessary
         # TODO: do this with pyproj since ST_Geometry can't
-        # if transform_srid and srid != transform_srid:
-        #      geom = "ST_Transform({}, {})".format(geom, transform_srid)
 
         if multi_geom:
             geom = 'ST_Multi({})'.format(geom)
@@ -344,15 +334,10 @@ class Table(object):
         elif type_ == 'date':
             # Convert datetimes to ISO-8601
             if isinstance(val, datetime):
-                # val = val.isoformat()
                 # Force microsecond output
                 val = val.strftime('%Y-%m-%dT%H:%M:%S.%f+00:00')
         elif type_ == 'nclob':
             pass
-            # Cast as a CLOB object so cx_Oracle doesn't try to make it a LONG
-            # var = self._c.var(cx_Oracle.NCLOB)
-            # var.setvalue(0, val)
-            # val = var
         else:
             raise TypeError("Unhandled type: '{}'".format(type_))
         return val
@@ -381,9 +366,6 @@ class Table(object):
         geom_field = self.geom_field
         geom_type = self.geom_type
         srid = from_srid or self.srid
-        table_geom_type = self.geom_type if geom_field else None
-        # row_geom_type = re.match('[A-Z]+', rows[0][geom_field]).group() \
-        #     if geom_field else None
 
         # Do we need to cast the geometry to a MULTI type? (Assuming all rows
         # have the same geom type.)
@@ -416,29 +398,6 @@ class Table(object):
             except IndexError:
                 raise ValueError('Field `{}` does not exist'.format(field))
         type_map_items = type_map.items()
-
-        # Prepare cursor for many inserts
-
-        # # METHOD 1: one big SQL statement. Note you also have to uncomment a
-        # # line in _prepare_geom to make this work.
-        # # In Oracle this looks like:
-        # # INSERT ALL
-        # #    INTO t (col1, col2, col3) VALUES ('val1_1', 'val1_2', 'val1_3')
-        # #    INTO t (col1, col2, col3) VALUES ('val2_1', 'val2_2', 'val2_3')
-        # # SELECT 1 FROM DUAL;
-        # fields_joined = ', '.join(fields)
-        # stmt = "INSERT ALL {} SELECT 1 FROM DUAL"
-
-        # # We always have to pass in a value for OBJECTID (or whatever the SDE
-        # # PK field is; sometimes it's something like OBJECTID_3). Check to see
-        # # if the user passed in a value for object ID (not likely), otherwise
-        # # hardcode the sequence incrementor into the prepared statement.
-        # if self.objectid_field in fields:
-        #     into_clause = "INTO {} ({}) VALUES ({{}})".format(self.name, \
-        #         fields_joined)
-        # else:
-        #     incrementor = "SDE.GDB_UTIL.NEXT_ROWID('{}', '{}')".format(self._owner, self.name)
-        #     into_clause = "INTO {} ({}, {}) VALUES ({{}}, {})".format(self.name, fields_joined, self.objectid_field, incrementor)
 
         # METHOD 2: executemany (not working with SDE.ST_Geometry call)
         placeholders = []
@@ -481,7 +440,6 @@ class Table(object):
         # Make list of value lists
         for i in range(0, iterations):
             val_rows = []
-            cur_stmt = stmt
             if chunk_size:
                 start = i * chunk_size
                 end = min(len_rows, start + chunk_size)
@@ -504,19 +462,8 @@ class Table(object):
                         val_row.append(val)
                 val_rows.append(val_row)
 
-            # Execute
-            # # METHOD 1
-            # vals_joined = [', '.join(vals) for vals in val_rows]
-            # cur_into_clauses = ' '.join([into_clause.format(x) for x in vals_joined])
-            # cur_stmt = cur_stmt.format(cur_into_clauses)
-            # self._c.execute(cur_stmt)
-            # self._save()
-
             # METHOD 2
-            # print(stmt)
-            # print(val_rows)
             self._c.executemany(None, val_rows)
-            # print(self._c.getbatcherrors())
             self._save()
 
     def delete(self, cascade=False):
@@ -531,4 +478,3 @@ class Table(object):
     def _save(self):
         """Convenience method for committing changes."""
         self.db.save()
-

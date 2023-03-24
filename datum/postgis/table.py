@@ -12,6 +12,7 @@ FIELD_TYPE_MAP = {
     'character varying':    'text',
     'date':                 'date',
     'USER-DEFINED':         'geom',
+    'name':                 'name'
 }
 
 class Table(object):

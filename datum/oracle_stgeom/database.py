@@ -3,7 +3,6 @@ import cx_Oracle
 from datum.util import parse_url
 # from .table import Table
 
-
 class Database(object):
     """Oracle database connection."""
 

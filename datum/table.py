@@ -66,7 +66,7 @@ class Table(object):
         return self._child.fields
 
     def read(self, fields=None, aliases=None, geom_field=None, to_srid=None, \
-        return_geom=True, limit=None, where=None, sort=None):
+        return_geom=True, limit=None, where=None, sort=None, **kwargs):
         """
         Read rows from the database.
         
@@ -83,7 +83,7 @@ class Table(object):
         """
         return self._child.read(fields=fields, aliases=aliases, \
             geom_field=geom_field, return_geom=return_geom, to_srid=to_srid, \
-            limit=limit, where=where, sort=sort)
+            limit=limit, where=where, sort=sort, **kwargs)
 
     def write(self, rows, from_srid=None, chunk_size=None):
         self._child.write(rows, from_srid=from_srid, chunk_size=chunk_size)
