@@ -242,7 +242,7 @@ class Table(object):
         if arraysize: 
             old = self._c.arraysize
             self._c.arraysize = arraysize
-            print(f'arraysize changed from {old} to {self._c.arraysize}')
+            print('arraysize changed from {} to {}'.format(old, self._c.arraysize))
                         
         self._c.execute(stmt)
 
