@@ -29,6 +29,12 @@ class Database(object):
         """Alternate notation for getting a table: db['table']"""
         return self.table(key)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exception_type, exception_value, traceback):
+        self.close()
+
     @property
     def name(self):
         return self._child.name
