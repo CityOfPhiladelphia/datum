@@ -13,8 +13,10 @@ FIELD_TYPE_MAP = {
     'text':                 'text',
     'character varying':    'text',
     'date':                 'date',
+    'timestamp without time zone': 'date',
     'USER-DEFINED':         'geom',
-    'name':                 'name'
+    'name':                 'name',
+    'bytea':                'text'
 }
 
 class Table(object):
@@ -22,6 +24,7 @@ class Table(object):
     def __init__(self, parent):
         self._parent = parent
         self.db = parent.db
+        self.schema = parent.schema if parent.schema not in ['', 'None', None] else 'public'
         self._c = self.db._c
         self.metadata = self._get_metadata()
         self.geom_type = self._get_geom_type() if self.geom_field else None
@@ -94,18 +97,19 @@ class Table(object):
         return f[0]['name']
 
     def _get_srid(self):
-        stmt = "SELECT Find_SRID('public', '{}', '{}')"\
-            .format(self.name, self.geom_field)
+        stmt = "SELECT Find_SRID('{}', '{}', '{}')"\
+            .format(self.schema, self.name, self.geom_field)
         return self._exec(stmt)[0]['find_srid']
 
     def _get_geom_type(self):
         stmt = """
             SELECT type
             FROM geometry_columns
-            WHERE f_table_schema = 'public'
+            WHERE f_table_schema = '{}'
             AND f_table_name = '{}'
             and f_geometry_column = '{}';
-        """.format(self.name, self.geom_field)
+        """.format(self.schema, self.name, self.geom_field)
+        print(stmt)
         return self._exec(stmt)[0]['type']
 
     @property
@@ -142,14 +146,14 @@ class Table(object):
                 wkt_getter = self._wkt_getter(geom_field, to_srid=to_srid)
                 fields.append(wkt_getter)
             fields_joined = ', '.join(fields)
-            stmt = "SELECT {} FROM {}".format(fields_joined, table_name)
+            stmt = "SELECT {} FROM {}.{}".format(fields_joined, self.schema, table_name)
         else:
             if geom_field and return_geom:
                 wkt_getter = self._wkt_getter(geom_field, to_srid=to_srid)
-                stmt = "SELECT {}.*, {} FROM {}".format(table_name, \
-                    wkt_getter, table_name)
+                stmt = "SELECT {}.*, {} FROM {}.{}".format(table_name, \
+                    wkt_getter, self.schema, table_name)
             else:
-                stmt = "SELECT * FROM {}".format(table_name)
+                stmt = "SELECT * FROM {}.{}".format(self.schema, table_name)
         if where:
             stmt += " WHERE {}".format(where)
         if sort:
@@ -160,7 +164,7 @@ class Table(object):
 
         if limit:
             stmt += " LIMIT {}".format(limit)
-        # print(stmt)
+        print(stmt)
         self._c.execute(stmt)
         return self._c.fetchall()
 
