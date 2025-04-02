@@ -5,6 +5,8 @@ from psycopg2 import ProgrammingError
 
 
 FIELD_TYPE_MAP = {
+    'smallint':             'num',
+    'bigint':               'num',
     'integer':              'num',
     'numeric':              'num',
     'double precision':     'num',
