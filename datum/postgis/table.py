@@ -73,7 +73,8 @@ class Table(object):
             select column_name as name, data_type as type
             from information_schema.columns
             where table_name = '{}'
-        """.format(self.name)
+            and table_schema = '{}'
+        """.format(self.name, self.schema)
         fields = self._exec(stmt)
         for field in fields:
             field['type'] = FIELD_TYPE_MAP[field['type']]
@@ -109,7 +110,7 @@ class Table(object):
             AND f_table_name = '{}'
             and f_geometry_column = '{}';
         """.format(self.schema, self.name, self.geom_field)
-        print(stmt)
+        # print(stmt)
         return self._exec(stmt)[0]['type']
 
     @property
@@ -164,7 +165,6 @@ class Table(object):
 
         if limit:
             stmt += " LIMIT {}".format(limit)
-        print(stmt)
         self._c.execute(stmt)
         return self._c.fetchall()
 
