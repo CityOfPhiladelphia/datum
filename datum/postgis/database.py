@@ -106,7 +106,7 @@ class Database(object):
     """VIEWS"""
 
     def create_view(self, view, select_stmt):
-        stmt = f"CREATE VIEW {view} AS {select)stmt}"
+        stmt = f"CREATE VIEW {view} AS {select_stmt}"
         self._c.execute(stmt)
         self.save()
 

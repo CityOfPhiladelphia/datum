@@ -55,7 +55,7 @@ class Table(object):
         assert geom_field is not None
         geom_getter = geom_field
         if to_srid:
-            geom_getter = f'ST_Transform({geom_getter}, {to_srid})
+            geom_getter = f'ST_Transform({geom_getter}, {to_srid})'
         return f'ST_AsText({geom_getter}) AS {geom_field}'
 
     @property
@@ -295,7 +295,7 @@ class Table(object):
                 val_rows.append(val_row)
 
             # Execute
-            vals_joined = [f'({', '.join(vals)})' for vals in val_rows]
+            vals_joined = [f"({', '.join(vals)})" for vals in val_rows]
             rows_joined = ', '.join(vals_joined)
             cur_stmt += rows_joined
             self._c.execute(cur_stmt)
@@ -316,7 +316,7 @@ class Table(object):
             name,
             'ON',
             self.name,
-            f'({', '.join(fields)})'
+            f"({', '.join(fields)})"
         ]
         stmt = ' '.join(comps)
         self._exec(stmt)
