@@ -184,7 +184,7 @@ class Table(object):
         # TODO: screen these with regex
         if 'NaN' in geom:
             geom = geom.replace('NaN', '0')
-            geom = f"ST_Force_2D({geom})"
+            geom = f"ST_Force2D({geom})" # in Postgres v3 and later, name has no underscore after "Force"
 
         # Convert curve geometries (these aren't supported by PostGIS)
         if 'CURVE' in geom or geom.startswith('CIRC'):
