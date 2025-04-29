@@ -5,14 +5,19 @@ from psycopg2 import ProgrammingError
 
 
 FIELD_TYPE_MAP = {
+    'smallint':             'num',
+    'bigint':               'num',
     'integer':              'num',
     'numeric':              'num',
     'double precision':     'num',
+    'real':                 'num',
     'text':                 'text',
     'character varying':    'text',
     'date':                 'date',
+    'timestamp without time zone': 'date',
     'USER-DEFINED':         'geom',
-    'name':                 'name'
+    'name':                 'name',
+    'bytea':                'text'
 }
 
 class Table(object):
@@ -20,6 +25,7 @@ class Table(object):
     def __init__(self, parent):
         self._parent = parent
         self.db = parent.db
+        self.schema = parent.schema if parent.schema not in ['', 'None', None] else 'public'
         self._c = self.db._c
         self.metadata = self._get_metadata()
         self.geom_type = self._get_geom_type() if self.geom_field else None
@@ -29,7 +35,7 @@ class Table(object):
         self._pk_field = None
 
     def __str__(self):
-        return 'Table: {}'.format(self.name)
+        return f'Table: {self.name}'
 
     @property
     def name(self):
@@ -49,12 +55,12 @@ class Table(object):
         assert geom_field is not None
         geom_getter = geom_field
         if to_srid:
-            geom_getter = 'ST_Transform({}, {})'.format(geom_getter, to_srid)
-        return 'ST_AsText({}) AS {}'.format(geom_getter, geom_field)
+            geom_getter = f'ST_Transform({geom_getter}, {to_srid})'
+        return f'ST_AsText({geom_getter}) AS {geom_field}'
 
     @property
     def count(self):
-        return self._exec('SELECT COUNT(*) FROM {}'.format(self._name_p))[0]
+        return self._exec(f'SELECT COUNT(*) FROM {self._name_p}')[0]
 
     def _exec(self, stmt):
         self._c.execute(stmt)
@@ -64,11 +70,12 @@ class Table(object):
             return
 
     def _get_metadata(self):
-        stmt = """
+        stmt = f"""
             select column_name as name, data_type as type
             from information_schema.columns
-            where table_name = '{}'
-        """.format(self.name)
+            where table_name = '{self.name}'
+            and table_schema = '{self.schema}'
+        """
         fields = self._exec(stmt)
         for field in fields:
             field['type'] = FIELD_TYPE_MAP[field['type']]
@@ -92,31 +99,31 @@ class Table(object):
         return f[0]['name']
 
     def _get_srid(self):
-        stmt = "SELECT Find_SRID('public', '{}', '{}')"\
-            .format(self.name, self.geom_field)
+        stmt = f"SELECT Find_SRID('{self.schema}', '{self.name}', '{self.geom_field}')"
         return self._exec(stmt)[0]['find_srid']
 
     def _get_geom_type(self):
-        stmt = """
+        stmt = f"""
             SELECT type
             FROM geometry_columns
-            WHERE f_table_schema = 'public'
-            AND f_table_name = '{}'
-            and f_geometry_column = '{}';
-        """.format(self.name, self.geom_field)
+            WHERE f_table_schema = '{self.schema}'
+            AND f_table_name = '{self.name}'
+            and f_geometry_column = '{self.geom_field}';
+        """
+        # print(stmt)
         return self._exec(stmt)[0]['type']
 
     @property
     def pk_field(self):
         if self._pk_field is None:
-            stmt = """
+            stmt = f"""
                 SELECT a.attname AS name
                 FROM   pg_index i
                 JOIN   pg_attribute a ON a.attrelid = i.indrelid
                                      AND a.attnum = ANY(i.indkey)
-                WHERE  i.indrelid = '{}'::regclass
+                WHERE  i.indrelid = '{self.name}'::regclass
                 AND    i.indisprimary;
-            """.format(self.name)
+            """
             self._pk_field = self._exec(stmt)[0]['name']
         return self._pk_field
 
@@ -140,25 +147,23 @@ class Table(object):
                 wkt_getter = self._wkt_getter(geom_field, to_srid=to_srid)
                 fields.append(wkt_getter)
             fields_joined = ', '.join(fields)
-            stmt = "SELECT {} FROM {}".format(fields_joined, table_name)
+            stmt = f"SELECT {fields_joined} FROM {self.schema}.{table_name}"
         else:
             if geom_field and return_geom:
                 wkt_getter = self._wkt_getter(geom_field, to_srid=to_srid)
-                stmt = "SELECT {}.*, {} FROM {}".format(table_name, \
-                    wkt_getter, table_name)
+                stmt = f"SELECT {table_name}.*, {wkt_getter} FROM {self.schema}.{table_name}"
             else:
-                stmt = "SELECT * FROM {}".format(table_name)
+                stmt = f"SELECT * FROM {self.schema}.{table_name}"
         if where:
-            stmt += " WHERE {}".format(where)
+            stmt += f" WHERE {where}"
         if sort:
             if isinstance(sort, list):
-                stmt += " ORDER BY {}".format(', '.join(sort))
+                stmt += f" ORDER BY {', '.join(sort)}"
             else:
-                stmt += " ORDER BY {}".format(sort)
+                stmt += f" ORDER BY {sort}"
 
         if limit:
-            stmt += " LIMIT {}".format(limit)
-        # print(stmt)
+            stmt += f" LIMIT {limit}"
         self._c.execute(stmt)
         return self._c.fetchall()
 
@@ -166,32 +171,32 @@ class Table(object):
         """Delete all rows."""
         name = dbl_quote(self.name)
         # RESTART IDENTITY resets sequence generators.
-        stmt = "TRUNCATE {} RESTART IDENTITY".format(name)
+        stmt = f"TRUNCATE {name} RESTART IDENTITY"
         stmt += ' CASCADE' if cascade else ''
         self._c.execute(stmt)
         self.db.save()
 
     def _prepare_geom(self, geom, srid, transform_srid=None, multi_geom=True):
         """Prepares WKT geometry by projecting and casting as necessary."""
-        geom = "ST_GeomFromText('{}', {})".format(geom, srid)
+        geom = f"ST_GeomFromText('{geom}', {srid})"
 
         # Handle 3D geometries
         # TODO: screen these with regex
         if 'NaN' in geom:
             geom = geom.replace('NaN', '0')
-            geom = "ST_Force_2D({})".format(geom)
+            geom = f"ST_Force2D({geom})" # in Postgres v3 and later, name has no underscore after "Force"
 
         # Convert curve geometries (these aren't supported by PostGIS)
         if 'CURVE' in geom or geom.startswith('CIRC'):
-            geom = "ST_CurveToLine({})".format(geom)
+            geom = f"ST_CurveToLine({geom})"
         # Reproject if necessary
         if transform_srid and srid != transform_srid:
-             geom = "ST_Transform({}, {})".format(geom, transform_srid)
+             geom = f"ST_Transform({geom}, {transform_srid})"
         # else:
-        #   geom = "ST_GeomFromText('{}', {})".format(geom, from_srid)
+        #   geom = f"ST_GeomFromText('{geom}', {from_srid})"
 
         if multi_geom:
-            geom = 'ST_Multi({})'.format(geom)
+            geom = f'ST_Multi({geom})'
 
         return geom
 
@@ -213,7 +218,7 @@ class Table(object):
         elif type_ == 'geom':
             val = str(val)
         else:
-            raise TypeError("Unhandled type: '{}'".format(type_))
+            raise TypeError(f"Unhandled type: '{type_}'")
         return val
 
     def _save(self):
@@ -239,12 +244,17 @@ class Table(object):
 
         # Do we need to cast the geometry to a MULTI type? (Assuming all rows
         # have the same geom type.)
+        print(f"self.geom_type is: {self.geom_type}\trow_geom_type is: {row_geom_type}")
         if geom_field:
-            if self.geom_type.startswith('MULTI') and \
-                not row_geom_type.startswith('MULTI'):
+            # for service area polygons from Postgres, both these will start with MULTI; 
+            # old condition results in
+            # "psycopg2.errors.InvalidParameterValue: Geometry type (Polygon) does not match column type (MultiPolygon)""
+            if self.geom_type.startswith('MULTI'): # and \
+                #not row_geom_type.startswith('MULTI'):
                 multi_geom = True
             else:
                 multi_geom = False
+            print(f"multi_geom = {multi_geom}")
 
         # Make a map of non geom field name => type
         type_map = OrderedDict()
@@ -252,11 +262,11 @@ class Table(object):
             try:
                 type_map[field] = [x['type'] for x in self.metadata if x['name'] == field][0]
             except IndexError:
-                raise ValueError('Field `{}` does not exist'.format(field))
+                raise ValueError(f'Field `{field}` does not exist')
         type_map_items = type_map.items()
 
         fields_joined = ', '.join(fields)
-        stmt = "INSERT INTO {} ({}) VALUES ".format(self.name, fields_joined)
+        stmt = f"INSERT INTO {self.name} ({fields_joined}) VALUES "
 
         len_rows = len(rows)
         if chunk_size is None or len_rows < chunk_size:
@@ -290,7 +300,7 @@ class Table(object):
                 val_rows.append(val_row)
 
             # Execute
-            vals_joined = ['({})'.format(', '.join(vals)) for vals in val_rows]
+            vals_joined = [f"({', '.join(vals)})" for vals in val_rows]
             rows_joined = ', '.join(vals_joined)
             cur_stmt += rows_joined
             self._c.execute(cur_stmt)
@@ -311,7 +321,7 @@ class Table(object):
             name,
             'ON',
             self.name,
-            '({})'.format(', '.join(fields))
+            f"({', '.join(fields)})"
         ]
         stmt = ' '.join(comps)
         self._exec(stmt)
@@ -322,6 +332,6 @@ class Table(object):
         Drops an index by name, if it exists
         '''
         name = kwargs.get('name') or self._name_for_index(fields)
-        stmt = "DROP INDEX IF EXISTS {}".format(name)
+        stmt = f"DROP INDEX IF EXISTS {name}"
         self._exec(stmt)
         self.db.save()

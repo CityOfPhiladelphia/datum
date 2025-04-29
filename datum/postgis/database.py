@@ -93,12 +93,12 @@ class Database(object):
         col_string_list.append('PRIMARY KEY(id)')
         col_string = ', '.join(col_string_list)
 
-        stmt = 'CREATE TABLE IF NOT EXISTS {} ({})'.format(name, col_string)
+        stmt = f'CREATE TABLE IF NOT EXISTS {name} ({col_string})'
         self._c.execute(stmt)
         self.save()
 
     def drop_table(self, name):
-        stmt = 'DROP TABLE IF EXISTS {}'.format(name)
+        stmt = f'DROP TABLE IF EXISTS {name}'
         self._c.execute(stmt)
         self.save()
 
@@ -106,21 +106,21 @@ class Database(object):
     """VIEWS"""
 
     def create_view(self, view, select_stmt):
-        stmt = "CREATE VIEW {} AS {}".format(view, select_stmt)
+        stmt = f"CREATE VIEW {view} AS {select_stmt}"
         self._c.execute(stmt)
         self.save()
 
     def drop_view(self, view):
-        stmt = "DROP VIEW IF EXISTS {}".format(view)
+        stmt = f"DROP VIEW IF EXISTS {view}"
         self._c.execute(stmt)
         self.save()
 
     def create_mview(self, mview, select_stmt):
-        stmt = "CREATE MATERIALIZED VIEW {} AS {}".format(mview, select_stmt)
+        stmt = f"CREATE MATERIALIZED VIEW {mview} AS {select_stmt}"
         self._c.execute(stmt)
         self.save()
 
     def drop_mview(self, mview):
-        stmt = "DROP MATERIALIZED VIEW IF EXISTS {}".format(mview)
+        stmt = f"DROP MATERIALIZED VIEW IF EXISTS {mview}"
         self._c.execute(stmt)
         self.save()
