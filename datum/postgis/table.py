@@ -244,17 +244,14 @@ class Table(object):
 
         # Do we need to cast the geometry to a MULTI type? (Assuming all rows
         # have the same geom type.)
-        print(f"self.geom_type is: {self.geom_type}\trow_geom_type is: {row_geom_type}")
         if geom_field:
-            # for service area polygons from Postgres, both these will start with MULTI; 
-            # old condition results in
+            # for service area polygons from Postgres, both these will start with MULTI; old condition results in
             # "psycopg2.errors.InvalidParameterValue: Geometry type (Polygon) does not match column type (MultiPolygon)""
             if self.geom_type.startswith('MULTI'): # and \
                 #not row_geom_type.startswith('MULTI'):
                 multi_geom = True
             else:
                 multi_geom = False
-            print(f"multi_geom = {multi_geom}")
 
         # Make a map of non geom field name => type
         type_map = OrderedDict()
